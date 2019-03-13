@@ -7,4 +7,4 @@ SNU Advanced Mobile Computing Team 7
 
 [Presentation Schedule](https://docs.google.com/spreadsheets/d/14S2M_EZmIb9sJgw_veFRdH034wusvrD_O4fFb38NBf0/edit#gid=0)
 
-[Google Drive Shared Folder](https://drive.google.com/drive/u/1/folders/1L-zKItOpEU8I8b-sYuCmj8AZ-aAQXvji)
+[Google Drive Shared Folder](https://drive.google.com/drive/folders/1L-zKItOpEU8I8b-sYuCmj8AZ-aAQXvji?usp=sharing)
