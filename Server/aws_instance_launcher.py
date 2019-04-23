@@ -20,7 +20,7 @@ instance_num = len(instances['Reservations'])
 
 if instance_num == 0:
     instance = boto3.resource('ec2').create_instances(
-        ImageId='ami-0080e4c5bc078760e',
+        ImageId='ami-0076ae0908f382581',
         MinCount=1,
         MaxCount=1,
         InstanceType='t2.micro',
