@@ -1,6 +1,7 @@
 package com.example.grouppowersave;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.location.Location;
 import android.location.LocationListener;
@@ -8,11 +9,17 @@ import android.location.LocationManager;
 import android.location.LocationProvider;
 import android.os.Build;
 import android.os.SystemClock;
+import android.provider.Settings;
+import android.support.v4.app.Fragment;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.security.acl.Acl;
+import java.security.acl.AclEntry;
+import java.security.acl.Owner;
 
 public class MainActivity extends AppCompatActivity {
     public static URL url;
@@ -66,9 +73,9 @@ public class MainActivity extends AppCompatActivity {
             mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
                     2000,
                     10, locationListenerGPS);
-   //         isLocationEnabled();
+               isLocationEnabled();
                 getMockLocation();
-            Log.e("Location!!!:", mLocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER).toString());
+//            Log.e("Location!!!:", mLocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER).toString());
 
 
         }catch(SecurityException e){
@@ -76,6 +83,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
     }
+
+
 
     private void getMockLocation()
     {
@@ -100,8 +109,8 @@ public class MainActivity extends AppCompatActivity {
 
         Location newLocation = new Location(LocationManager.GPS_PROVIDER);
 
-        newLocation.setLatitude (10);
-        newLocation.setLongitude(10);
+        newLocation.setLatitude (10+System.currentTimeMillis()%100);
+        newLocation.setLongitude(10+System.currentTimeMillis()%100);
         newLocation.setAccuracy(500);
         newLocation.setTime(System.currentTimeMillis());
         if (Build.VERSION.SDK_INT >= 17) {
@@ -127,5 +136,21 @@ public class MainActivity extends AppCompatActivity {
                         LocationManager.GPS_PROVIDER,
                         newLocation
                 );
+    }
+
+    private void isLocationEnabled() {
+        mLocationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
+        if( !mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ) {
+            new AlertDialog.Builder(mContext)
+                    .setTitle("gps_not_found_title")  // GPS not found
+                    .setMessage("gps_not_found_message") // Want to enable?
+                    .setPositiveButton("yes", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                         //  owner.startActivity(new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                        }
+                    })
+                    .setNegativeButton("no", null)
+                    .show();
+        }
     }
 }

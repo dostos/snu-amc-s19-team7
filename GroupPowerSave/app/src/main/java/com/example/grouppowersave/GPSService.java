@@ -8,6 +8,8 @@ import android.util.Log;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+
+import org.json.JSONException;
 import org.json.JSONObject;
 
 
@@ -33,9 +35,15 @@ public class GPSService extends IntentService {
         //execute code here, information can be passed to this methode via the intent, but we won't use it most likely
         connectToServer();
 
+
     }
     public static void connectToServer(){
         final JSONObject jsonO = new JSONObject();
+        try {
+            jsonO.put("Test","HiJingyu");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
         final String jsonS = jsonO.toString();
 
         new AsyncTask<Void, Void, String>(){
@@ -44,8 +52,8 @@ public class GPSService extends IntentService {
             protected String doInBackground(Void... voids) {
                 try {
                     HttpClient client = new HttpClient();
-                    String body = client.post("https://webhook.site/90286341-1ec0-4499-990b-1cb2e7dcaa7e", "11data=test data");
-                    System.out.println(body);
+                    String body = client.post("http://ec2-13-125-224-189.ap-northeast-2.compute.amazonaws.com:8080/register", jsonS);
+                    Log.e("Sever Answer:", body);
                 } catch(IOException ioe) {
                     ioe.printStackTrace();
                 }
