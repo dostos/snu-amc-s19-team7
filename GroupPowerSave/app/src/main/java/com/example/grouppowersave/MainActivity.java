@@ -2,6 +2,10 @@ package com.example.grouppowersave;
 
 import android.content.Context;
 import android.content.Intent;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -14,8 +18,10 @@ import android.util.Log;
 import java.net.MalformedURLException;
 import java.net.URL;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SensorEventListener {
+
     public static URL url;
+    private SensorManager mSensorManager;
     LocationManager mLocationManager;
     Context mContext;
 
@@ -75,6 +81,11 @@ public class MainActivity extends AppCompatActivity {
             Log.e("SecurityException",e.toString());
         }
 
+        mSensorManager=(SensorManager) getSystemService(SENSOR_SERVICE);
+        //have to change position of registerListener when we want to use accelerometer.
+        mSensorManager.registerListener(this,
+                mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
+
     }
 
     private void getMockLocation()
@@ -127,5 +138,19 @@ public class MainActivity extends AppCompatActivity {
                         LocationManager.GPS_PROVIDER,
                         newLocation
                 );
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent sensorEvent) {
+        if(sensorEvent.sensor.getType()==Sensor.TYPE_ACCELEROMETER){
+            double x=sensorEvent.values[0], y=sensorEvent.values[1], z=sensorEvent.values[2];
+            //send this values when we want.
+            Log.d("x,y,z",x+","+y+","+z);
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int i) {
+
     }
 }
