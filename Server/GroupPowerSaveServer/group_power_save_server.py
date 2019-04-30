@@ -37,7 +37,7 @@ class GroupPowwerSaveServer(object):
     async def __register_handler(self, request):
         #data = await request.json()
         # TODO : Get unique identification from a user to prevent multiple registration
-        if request.can_read_body():
+        if request.can_read_body:
             print(await request.json())
         current_id = self.unique_user_id_count
         self.unique_user_id_count += 1
@@ -45,7 +45,7 @@ class GroupPowwerSaveServer(object):
         return web.Response(text=str(current_id))
 
     async def __put__data_handler(self, request):
-        if request.can_read_body():
+        if request.can_read_body:
             print(await request.json())
         return web.Response()
 
