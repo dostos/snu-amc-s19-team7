@@ -62,23 +62,43 @@ class GroupPowerSaveServer(object):
             # TODO group matching for non-grouped users
             time.sleep(interval)
 
-    async def __register_handler(self, request):
-        #data = await request.json()
-        # TODO : Get unique identification from a user to prevent multiple registration
+    async def __parse_json(self, request, must_contains : list = []):    
+        """
+        parse json file from request\n
+        :param request: http request\n
+        :param must_contains: list of keys that json must contain\n
+        :return: bool (success), json object or error msg
+        """
         try:
             if request.can_read_body:
-                print(await request.json())
-        except ValueError:
-            print("Not able to parse json")
-        
-        with self.user_dict_lock:
-            # temporal id generation
-            current_id = self.unique_user_id_count
-            self.unique_user_id_count += 1
-            print("User registered id : ", current_id)
-            self.user_dict[current_id] = User(current_id)
+                json = await request.json()
+                not_available_list = []
+                for key in must_contains:
+                    if key not in json:
+                        not_available_list.append(key)
+                
+                if len(not_available_list) == 0:
+                    return True, json
+                else:
+                    return False, "Doesn't contain : " + "".join(str(x) for x in not_available_list)
 
-        return web.Response(text=str(current_id))
+        except ValueError:
+            return False, "Not able to parse json"
+
+
+
+    async def __register_handler(self, request):
+        succeess, result = await self.__parse_json(request, ["id"])
+
+        if succeess:
+            if result["id"] in self.user_dict:
+                return web.Response(status=422, text="Duplicate id detected")
+            with self.user_dict_lock:
+                self.user_dict[result["id"]] = User(result["id"])
+                print(self.user_dict)
+            return web.Response()
+        else:
+            return web.Response(status=422, text=result)
 
     async def __put__data_handler(self, request):
         if request.can_read_body:
@@ -90,4 +110,4 @@ class GroupPowerSaveServer(object):
         print(data)
         return web.Response()
 
-server = GroupPowwerSaveServer()
+server = GroupPowerSaveServer()
