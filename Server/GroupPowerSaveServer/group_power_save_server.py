@@ -1,10 +1,34 @@
 from aiohttp import web
-from threading import Thread
+from threading import Thread, Lock
 import time
 
 # TODO : SSL / security logic ?
 
-class GroupPowwerSaveServer(object):
+class Group(object):
+    # static count for group id
+    unique_id_count = 0
+
+    @staticmethod
+    def __get_unique_id():
+        id = Group.unique_id_count
+        Group.unique_id_count +=1
+        return id
+
+    def __init__(self):
+        self.id = Group.__get_unique_id()
+        self.member_ids = {}
+
+class User(object):
+    def __init__(self, id):
+        self.id = id
+
+    def update_data(self, data):
+        # TODO : store latitude / longitude / accel data
+        pass
+
+
+
+class GroupPowerSaveServer(object):
     def __init__(self):
         self.app = web.Application()
         #TODO register more handlers
@@ -18,6 +42,10 @@ class GroupPowwerSaveServer(object):
         self.threads.append(Thread(target=self.__duty_cycle_tick, args=[5]))
         self.threads.append(Thread(target=self.__group_match_tick, args=[3]))
 
+        self.user_dict_lock = Lock()
+        self.user_dict = {}
+        self.group_dict_lock = Lock()
+        self.group_dict = {}
 
         for thread in self.threads:
             thread.start()
@@ -37,11 +65,19 @@ class GroupPowwerSaveServer(object):
     async def __register_handler(self, request):
         #data = await request.json()
         # TODO : Get unique identification from a user to prevent multiple registration
-        if request.can_read_body:
-            print(await request.json())
-        current_id = self.unique_user_id_count
-        self.unique_user_id_count += 1
-        print("User registered id : ", current_id)
+        try:
+            if request.can_read_body:
+                print(await request.json())
+        except ValueError:
+            print("Not able to parse json")
+        
+        with self.user_dict_lock:
+            # temporal id generation
+            current_id = self.unique_user_id_count
+            self.unique_user_id_count += 1
+            print("User registered id : ", current_id)
+            self.user_dict[current_id] = User(current_id)
+
         return web.Response(text=str(current_id))
 
     async def __put__data_handler(self, request):
