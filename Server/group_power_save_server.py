@@ -52,17 +52,17 @@ class GroupPowerSaveServer(object):
 
         web.run_app(self.app)
 
-    def __duty_cycle_tick(self, interval):
+    def __duty_cycle_tick(self, interval: int):
         while(True):
             # TODO duty cycle for group validation
             time.sleep(interval)
 
-    def __group_match_tick(self, interval):
+    def __group_match_tick(self, interval: int):
         while(True):
             # TODO group matching for non-grouped users
             time.sleep(interval)
 
-    async def __parse_json(self, request, must_contains : list = []):    
+    async def __parse_json(self, request: web.Request, must_contains : list = []):    
         """
         parse json file from request\n
         :param request: http request\n
@@ -87,7 +87,7 @@ class GroupPowerSaveServer(object):
 
 
 
-    async def __register_handler(self, request):
+    async def __register_handler(self, request: web.Request) -> web.Response:
         succeess, result = await self.__parse_json(request, ["id"])
 
         if succeess:
@@ -100,12 +100,12 @@ class GroupPowerSaveServer(object):
         else:
             return web.Response(status=422, text=result)
 
-    async def __put__data_handler(self, request):
+    async def __put__data_handler(self, request: web.Request) -> web.Response:
         if request.can_read_body:
             print(await request.json())
         return web.Response()
 
-    async def __get_data_handler(self, request):
+    async def __get_data_handler(self, request: web.Request) -> web.Response:
         data = await request.json()
         print(data)
         return web.Response()
