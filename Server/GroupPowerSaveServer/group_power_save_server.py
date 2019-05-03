@@ -1,30 +1,11 @@
 from aiohttp import web
 from threading import Thread, Lock
 import time
+import json
 
-# TODO : SSL / security logic ?
-
-class Group(object):
-    # static count for group id
-    unique_id_count = 0
-
-    @staticmethod
-    def __get_unique_id():
-        id = Group.unique_id_count
-        Group.unique_id_count +=1
-        return id
-
-    def __init__(self, member_id_list : list):
-        self.id = Group.__get_unique_id()
-        self.member_id_list = member_id_list
-
-class User(object):
-    def __init__(self, id):
-        self.id = id
-
-    def update_data(self, data):
-        # TODO : store latitude / longitude / accel data
-        pass
+from .group import Group
+from .user import User, UserStatus
+# TODO : SSL / security logic ?                          
 
 class GroupPowerSaveServer(object):
     def __init__(self):
@@ -33,8 +14,7 @@ class GroupPowerSaveServer(object):
         self.app.add_routes([web.post('/register', self.__register_handler)])
         self.app.add_routes([web.put('/user-data', self.__put__data_handler)])
         self.app.add_routes([web.get("/user-data",self.__get_data_handler)])
-        self.app.add_routes([web.get("/ping",self.__ping_handler)])
-        self.unique_user_id_count = 0
+        self.app.add_routes([web.get("/ping",self.__ping_handler)]) 
 
         # Worker threads setup
         self.threads = []
@@ -44,7 +24,10 @@ class GroupPowerSaveServer(object):
         self.user_dict_lock = Lock()
         self.user_dict = {}
         self.group_dict_lock = Lock()
-        self.group_dict = {}
+        id = Group.get_unique_id()
+        # temporal manual grouping
+        self.global_group = Group(id)
+        self.group_dict = { id: self.global_group }
 
         for thread in self.threads:
             thread.start()
@@ -53,7 +36,7 @@ class GroupPowerSaveServer(object):
 
     def __duty_cycle_tick(self, interval: int):
         while(True):
-            # TODO duty cycle for group validation
+            # TODO duty cycle for group validation / remove non-active user, leader
             time.sleep(interval)
 
     def __group_match_tick(self, interval: int):
@@ -84,38 +67,68 @@ class GroupPowerSaveServer(object):
         except ValueError:
             return False, "Not able to parse json"
 
-
-
     async def __register_handler(self, request: web.Request) -> web.Response:
         succeess, result = await self.__parse_json(request, ["id"])
 
         if succeess:
-            if result["id"] in self.user_dict:
+            id = str(result["id"])
+            if id in self.user_dict:
                 return web.Response(status=422, text="Duplicate id detected")
             with self.user_dict_lock:
-                self.user_dict[result["id"]] = User(result["id"])
+                self.user_dict[id] = User(id)
+                # temporal : manual grouping
+                self.user_dict[id].reserve_status_change(UserStatus.GROUP_MEMBER, self.global_group.id)
                 print(self.user_dict)
             return web.Response()
         else:
             return web.Response(status=422, text=result)
 
     async def __put__data_handler(self, request: web.Request) -> web.Response:
-        if request.can_read_body:
-            print(await request.json())
-        return web.Response()
+        id = str(request.rel_url.query['id'])
 
-    async def __get_data_handler(self, request: web.Request) -> web.Response:
-        data = await request.json()
-        print(data)
-        return web.Response()
-    
-    async def __ping_handler(self, request: web.Request) -> web.Response:
-        succeess, result = await self.__parse_json(request, ["id"])
+        # id validation
+        if id not in self.user_dict:
+            return web.Response(status=422, text="Not valid id")
 
+        succeess, result = await self.__parse_json(request)
         if succeess:
-            # TODO : response  
+            user = self.user_dict[id]
+            user.update_data(result)
+            print("trying to put data from ", id, " ", result)
             return web.Response()
         else:
             return web.Response(status=422, text=result)
 
-server = GroupPowerSaveServer()
+
+    async def __get_data_handler(self, request: web.Request) -> web.Response:
+        id = str(request.rel_url.query['id'])
+
+        # id validation
+        if id not in self.user_dict:
+            return web.Response(status=422, text="Not valid id")
+        
+        user = self.user_dict[id]
+
+        return web.json_response(
+            {
+                "id" : user.id,
+                "group_id" : user.group_id,
+                "status" : user.status.value,
+                "data" : user.data
+                # TODO : more informations (gps position ...)
+            }
+        )
+    
+    async def __ping_handler(self, request: web.Request) -> web.Response:
+        id = str(request.rel_url.query['id'])
+
+        # id validation
+        if id not in self.user_dict:
+            return web.Response(status=422, text="Not valid id")
+        
+        pending_status = self.user_dict[id].try_update_status()
+        if pending_status is not UserStatus.NONE:
+            return web.json_response({"status" : pending_status.value })
+
+        # TODO : response  
+        return web.Response()
