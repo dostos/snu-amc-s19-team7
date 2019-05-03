@@ -14,9 +14,9 @@ class Group(object):
         Group.unique_id_count +=1
         return id
 
-    def __init__(self):
+    def __init__(self, member_id_list : list):
         self.id = Group.__get_unique_id()
-        self.member_ids = {}
+        self.member_id_list = member_id_list
 
 class User(object):
     def __init__(self, id):
@@ -26,8 +26,6 @@ class User(object):
         # TODO : store latitude / longitude / accel data
         pass
 
-
-
 class GroupPowerSaveServer(object):
     def __init__(self):
         self.app = web.Application()
@@ -35,6 +33,7 @@ class GroupPowerSaveServer(object):
         self.app.add_routes([web.post('/register', self.__register_handler)])
         self.app.add_routes([web.put('/user-data', self.__put__data_handler)])
         self.app.add_routes([web.get("/user-data",self.__get_data_handler)])
+        self.app.add_routes([web.get("/ping",self.__ping_handler)])
         self.unique_user_id_count = 0
 
         # Worker threads setup
@@ -109,5 +108,14 @@ class GroupPowerSaveServer(object):
         data = await request.json()
         print(data)
         return web.Response()
+    
+    async def __ping_handler(self, request: web.Request) -> web.Response:
+        succeess, result = await self.__parse_json(request, ["id"])
+
+        if succeess:
+            # TODO : response  
+            return web.Response()
+        else:
+            return web.Response(status=422, text=result)
 
 server = GroupPowerSaveServer()
