@@ -35,7 +35,8 @@ public class HttpClient {
             return response.toString();
 
         } else {
-            return "GET failed";
+            Log.e("GET position failed","returning 0");
+            return "0";
         }
     }
 
@@ -58,7 +59,8 @@ public class HttpClient {
             return response.toString();
 
         } else {
-            return "GET failed";
+            Log.e("GET ping failed","returning 0");
+            return "0";
         }
     }
 

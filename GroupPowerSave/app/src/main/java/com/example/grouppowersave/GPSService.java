@@ -1,6 +1,9 @@
 package com.example.grouppowersave;
 
+import android.app.AlarmManager;
 import android.app.IntentService;
+import android.app.PendingIntent;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Sensor;
@@ -15,6 +18,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -23,11 +27,9 @@ import java.io.IOException;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class GPSService extends IntentService implements SensorEventListener {
+public class GPSService extends Service implements SensorEventListener {
 
-    public GPSService() {
-        super("GPSService");
-    }
+    //public GPSService() {super("GPSService");}
 
     public static String url = "http://ec2-13-125-224-189.ap-northeast-2.compute.amazonaws.com:8080/register";
     private SensorManager mSensorManager;
@@ -42,6 +44,8 @@ public class GPSService extends IntentService implements SensorEventListener {
     LocationListener locationListenerGPS = new LocationListener() {
         @Override
         public void onLocationChanged(android.location.Location location) {
+            if(location == null)
+                Log.e("locationupdate","location is null");
             currentLocation = location;
             double latitude = location.getLatitude();
             double longitude = location.getLongitude();
@@ -64,9 +68,44 @@ public class GPSService extends IntentService implements SensorEventListener {
         }
     };
 
+
     @Override
-    protected void onHandleIntent(Intent workIntent) {
-        //execute code here, information can be passed to this methode via the intent, but we won't use it most likely
+    public IBinder onBind(Intent arg0) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        // TODO Auto-generated method stub
+        return START_STICKY;
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // TODO Auto-generated method stub
+        Intent restartService = new Intent(getApplicationContext(),
+                this.getClass());
+        restartService.setPackage(getPackageName());
+        PendingIntent restartServicePI = PendingIntent.getService(
+                getApplicationContext(), 1, restartService,
+                PendingIntent.FLAG_ONE_SHOT);
+
+        //Restart the service once it has been killed android
+
+
+        AlarmManager alarmService = (AlarmManager)getApplicationContext().getSystemService(Context.ALARM_SERVICE);
+        alarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() +100, restartServicePI);
+
+    }
+
+    @Override
+    public void onCreate() {
+        // TODO Auto-generated method stub
+        super.onCreate();
+
+        //start a separate thread and start listening to your network object
+
         //INITIALISATION
         Log.e("GPSService", "started");
         client = new HttpClient();
@@ -85,11 +124,13 @@ public class GPSService extends IntentService implements SensorEventListener {
         } catch (SecurityException e) {
             Log.e("SecurityException", e.toString());
         }
+        connectToServer();
         handler = new Handler();
         runner = new Runner();
         handler.post(runner);
-        connectToServer();
+
     }
+
 
     @Override
     public void onDestroy() {
@@ -180,7 +221,7 @@ public class GPSService extends IntentService implements SensorEventListener {
         if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             double x = sensorEvent.values[0], y = sensorEvent.values[1], z = sensorEvent.values[2];
             //send this values when we want.
-            //    Log.d("x,y,z",x+","+y+","+z);
+            //    Log.d("Acc: x,y,z",x+","+y+","+z);
         }
     }
 
@@ -192,6 +233,8 @@ public class GPSService extends IntentService implements SensorEventListener {
         final JSONObject jsonO = new JSONObject();
         try {
             if(currentLocation != null){
+                Log.e("ProvideLocationToServer", uniqueUserID);
+                Log.e("ProvideLocationToServer", currentLocation.toString());
             jsonO.put("user-data", uniqueUserID+currentLocation.toString());}
         } catch (JSONException e) {
             e.printStackTrace();
@@ -220,6 +263,7 @@ public class GPSService extends IntentService implements SensorEventListener {
                 try {
                     String pos = client.getPosition(url, uniqueUserID);
                     Log.e("LocationReceived", pos);
+                    Log.e("location update",pos);
                     currentLocation = stringToLocation(pos);
 
 
@@ -264,13 +308,14 @@ public class GPSService extends IntentService implements SensorEventListener {
         loc.setLongitude(Double.parseDouble(longlatS[1]));
         loc.setAccuracy(Float.parseFloat(locA[2]));
         //Time has format like +1d22h29m13s93ms - not needed but could be added
+        Log.e("str to loc result",loc.toString());
         return loc;
     }
     public class Runner implements Runnable {
         //Should run every 5 seconds
         @Override
         public void run() {
-            Log.d("AndroidClarified", "Running");
+            Log.e("Duty cycle", "Running");
             handler.postDelayed(this, 1000 * 5);
             receiveGroupStatus();
             if(groupStatus == 0){
@@ -278,6 +323,7 @@ public class GPSService extends IntentService implements SensorEventListener {
             }else {
                 receivePosition();
             }
+
         }
     }
 }
