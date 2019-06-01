@@ -59,15 +59,14 @@ class User(object):
             if group_id is not None:
                 self._pending_group_id = group_id
     
-    def try_update_status(self):
+    def get_pending_status(self):
         """
-        try update status if there is any change
+        try to get pending status if there is any change
         """
         pending_status = self._pending_status_change
         self._pending_status_change = UserStatus.NONE
         if self._status is not pending_status and pending_status is not UserStatus.NONE:
             self._status = pending_status
-            print("User ", self._id, " is a ", self._status.name)
             
             if self._pending_group_id is not None:
                 self._group_id = self._pending_group_id
@@ -75,4 +74,4 @@ class User(object):
                 
             return pending_status
         else:
-            return UserStatus.NONE
+            return None

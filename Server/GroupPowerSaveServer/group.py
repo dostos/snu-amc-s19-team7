@@ -1,31 +1,56 @@
 from threading import Lock
+import time
+from datetime import datetime
 
 class Group(object):
     # static count for group id
     unique_id_count = 0
 
     @staticmethod
-    def get_unique_id():
+    def __get_unique_id():
         id = Group.unique_id_count
         Group.unique_id_count +=1
         return id
 
-    def __init__(self, id, member_id_list : list = []):
-        self._id = id
+    def __init__(self, member_id_list : list = []):
+        self._id = Group.__get_unique_id()
         self.member_id_list = member_id_list
-        self.lock = Lock()
-        self.leader_iterator = None
+        self._member_id_list_lock = Lock()
+        self._leader_index = 0
+        self._last_update_time = datetime.now()
 
     def add_member(self, id):
-        with self.lock:
+        with self._member_id_list_lock:
             self.member_id_list.add(id)
-    
-    def get_next_leader(self, id):
-        pass
-        #with self.lock:
-            #if self.leader_iterator is None:
-            #    self.leader_iterator = self.member_id_list.
 
+    def is_need_leader_update(self, interval_in_second):
+        if len(self.member_id_list) == 0:
+            return False
+        elapsed = datetime.now() - self._last_update_time
+        return elapsed.seconds >= interval_in_second
+
+
+    def confirm_leader_update(self, id):
+        next_index = self.__next_leader_index()
+        if self.member_id_list[self.__next_leader_index()] == id:
+            self._leader_index = next_index
+            self._last_update_time = datetime.now()
+    
+    def __next_leader_index(self):
+        with self._member_id_list_lock:
+            next_index = self._leader_index + 1
+            if next_index == len(self.member_id_list):
+                next_index = 0
+        return next_index
+
+    @property
+    def current_leader_id(self):
+        return self.member_id_list[self._leader_index]
+
+    @property
+    def next_leader_id(self):
+        return self.member_id_list[self.__next_leader_index()]
+        
     @property
     def id(self):
         return self._id
