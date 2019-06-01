@@ -80,12 +80,12 @@ class GroupPowerSaveServer(object):
         if succeess:
             id = str(result["id"])
             if id in self.user_dict:
-                return web.Response(status=422, text="Duplicate id detected")
+                return web.Response(status=422, text="Duplicate id detected : "+str(id))
             with self.user_dict_lock:
                 self.user_dict[id] = User(id)
                 # temporal : manual grouping
                 self.user_dict[id].reserve_status_change(UserStatus.GROUP_MEMBER, self.global_group.id)
-                print(self.user_dict)
+                print("New Client Registered : ", str(id))
             return web.Response()
         else:
             return web.Response(status=422, text=result)
@@ -121,7 +121,8 @@ class GroupPowerSaveServer(object):
                 "id" : user.id,
                 "group_id" : user.group_id,
                 "status" : user.status.value,
-                "data" : user.data
+                "gps" : user.gps,
+                "acceleration" : user.acceleration,
                 # TODO : more informations (gps position ...)
             }
         )
