@@ -64,7 +64,7 @@ class GroupPowerSaveServer(object):
                 if len(not_available_list) == 0:
                     return True, json
                 else:
-                    return False, "Doesn't contain : " + "".join(str(x) for x in not_available_list)
+                    return False, "Doesn't contain : " + "".join(str(x) + " " for x in not_available_list)
 
         except ValueError:
             return False, "Not able to parse json"
@@ -97,7 +97,7 @@ class GroupPowerSaveServer(object):
         if id not in self.user_dict:
             return web.Response(status=422, text="Not valid id")
 
-        succeess, result = await self.__parse_json(request)
+        succeess, result = await self.__parse_json(request, ["time"])
         if succeess:
             user = self.user_dict[id]
             user.update_data(result)
