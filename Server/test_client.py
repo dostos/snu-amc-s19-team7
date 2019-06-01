@@ -7,6 +7,7 @@ import sys
 import random
 import numpy as np
 from functools import partial
+from GroupPowerSaveServer.user import UserStatus
 
 class Client(object):
     # static count for group id
@@ -22,20 +23,25 @@ class Client(object):
         self.id = Client.get_unique_id()
         self.position = position
 
-class ClientSet(object):
-    def __init__(self, initialize_logic):
-        self.clients = initialize_logic()
+class DefaultTest(object):
+    def __init__(self, session, target_address, center, num_client):
+        self.session = session
+        self.target_address = target_address
+        self.center = center
+
+        self._generate_clients(num_client)
+        
     
-    async def register(self, session, target_address):
+    async def register(self):
         for client in self.clients:
-            resp = await session.post(target_address + "register", json={'id' : client.id})
+            resp = await self.session.post(self.target_address + "register", json={'id' : client.id})
             
             # reassign randomly generated id
             if resp.status == 422:
                 success = False
                 while success is False:
                     random_id = random.randint(0, sys.maxsize)
-                    resp = await session.post(target_address + "register", json={'id' : random_id})
+                    resp = await self.session.post(self.target_address + "register", json={'id' : random_id})
                     # success?
                     success = resp.status == 200
                     if success:
@@ -46,18 +52,18 @@ class ClientSet(object):
             # network related error cannot be fixed
             elif resp.status != 200:
                 return False
-
         return True
+    
+    def loop(self):
+        # TODO : default loops (ping)
+        pass
 
-async def register(session, target_address, center, num_client):
-    def random_init(center, num_client):
-        clients = []
+    # virtual function for client initialization
+    def _generate_clients(self, num_client):
+        self.clients = []
         for i in range(num_client):
-            clients.append(Client(np.add(center, [random.uniform(0, 0.01),random.uniform(0, 0.01)])))
-        return clients
+            self.clients.append(Client(np.add(self.center, [random.uniform(0, 0.01),random.uniform(0, 0.01)])))
 
-    clientSet = ClientSet(partial(random_init, center, num_client))
-    return await clientSet.register(session, target_address)
 
 async def main(loop):
     map_center = [37.4556699,126.9533264]
@@ -65,9 +71,10 @@ async def main(loop):
     target_address = "http://localhost:8080/"
 
     async with aiohttp.ClientSession(loop=loop) as session:
-        result = await register(session, target_address, map_center, clients)
-        print("Registration result : ", str(result))
-        if result is True:
+        test = DefaultTest(session, target_address, map_center, clients)
+        initialized = await test.register()
+        print("Registration result : ", initialized)
+        if initialized:
             pass
 
 if __name__ == "__main__":
