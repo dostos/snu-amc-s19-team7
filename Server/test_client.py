@@ -7,6 +7,11 @@ import sys
 import random
 import numpy as np
 from functools import partial
+
+from threading import Thread, Lock
+from datetime import datetime
+import time
+
 from GroupPowerSaveServer.user import UserStatus
 
 class Client(object):
@@ -29,7 +34,7 @@ class DefaultTest(object):
         self.target_address = target_address
         self.center = center
 
-        self._generate_clients(num_client)
+        self.__generate_clients(num_client)
         
     
     async def register(self):
@@ -54,12 +59,28 @@ class DefaultTest(object):
                 return False
         return True
     
-    def loop(self):
-        # TODO : default loops (ping)
+    async def loop(self, ping_interval):
+        # add all async loop functions here!
+        await asyncio.gather(self.__ping_tick(ping_interval))
+
+    async def __non_member_tick(self):
         pass
 
+    async def __ping(self, client):
+        # simulate random network fluctuation
+        await asyncio.sleep(0, 0.5)
+        async with self.session.get(self.target_address + "ping", params={'id' : client.id}) as resp:
+            print(resp.content_type)
+
+    async def __ping_tick(self, ping_interval):
+        while(True):
+            print("Ping tick")
+            for client in self.clients:
+                asyncio.ensure_future(self.__ping(client))
+            await asyncio.sleep(ping_interval)
+
     # virtual function for client initialization
-    def _generate_clients(self, num_client):
+    def __generate_clients(self, num_client):
         self.clients = []
         for i in range(num_client):
             self.clients.append(Client(np.add(self.center, [random.uniform(0, 0.01),random.uniform(0, 0.01)])))
@@ -75,7 +96,7 @@ async def main(loop):
         initialized = await test.register()
         print("Registration result : ", initialized)
         if initialized:
-            pass
+            await test.loop(2)
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
