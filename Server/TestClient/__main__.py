@@ -1,4 +1,5 @@
 from .test_client import *
+import asyncio
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test environment for a GroupPowerSaveServer.')
@@ -16,13 +17,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.get_event_loop()
-
-    if loop.is_running():
-        asyncio.ensure_future(execute(loop, test_classes[args.test], args.num_clients, args.target_server), loop=loop)
-    else:
-        loop.run_until_complete(execute(loop, test_classes[args.test], args.num_clients, args.target_server))
-        loop.close()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(execute(loop, test_classes[args.test], args.num_clients, args.target_server, lambda clients: print(clients)))
+    loop.close()
