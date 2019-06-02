@@ -163,8 +163,9 @@ class GroupPowerSaveServer(object):
         # TODO : missing responde delivery check
         if pending_status is UserStatus.GROUP_LEADER:
             group = self.group_dict[self.user_dict[id].group_id]
-            self.user_dict[group.current_leader_id].reserve_status_change(UserStatus.GROUP_MEMBER)
-            group.confirm_leader_update(id)
+            if group.current_leader_id != id:
+                self.user_dict[group.current_leader_id].reserve_status_change(UserStatus.GROUP_MEMBER)
+                group.confirm_leader_update(id)
 
         # let client know about a new role
         if pending_status is not None:
