@@ -18,12 +18,26 @@ class Group(object):
         self._member_id_list_lock = Lock()
         self._leader_index = 0
         self._last_update_time = datetime.now()
+        self._need_leader_update = False
 
     def add_member(self, id):
         with self._member_id_list_lock:
             self.member_id_list.add(id)
 
+    def remove_member(self, id):
+        with self._member_id_list_lock:
+            current_leader = self.current_leader_id
+            self.member_id_list.remove(id)
+            if current_leader == id:
+                self._need_leader_update = True
+            # update leader index 
+            else:
+                self._leader_index = self.member_id_list.index(current_leader)
+
     def is_need_leader_update(self, interval_in_second):
+        if self._need_leader_update is True:
+            self._need_leader_update = False
+            return True
         if len(self.member_id_list) == 0:
             return False
         elapsed = datetime.now() - self._last_update_time
