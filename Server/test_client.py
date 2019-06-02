@@ -1,16 +1,15 @@
 import argparse
-
 import asyncio
 import aiohttp
-
-import sys
+import sys, inspect
 import random
 import numpy as np
-from functools import partial
+import time
 
+from enum import Enum
+from functools import partial
 from threading import Thread, Lock
 from datetime import datetime
-import time
 
 from GroupPowerSaveServer.user import UserStatus
 
@@ -59,14 +58,26 @@ class DefaultTest(object):
             elif resp.status != 200:
                 return False
         return True
-    
-    async def update(self, ping_interval):
-        # add all async loop functions here!
-        await asyncio.gather(self.__ping_tick(ping_interval))
 
-    async def __non_member_tick(self):
+    async def non_member_tick(self):
         pass
 
+    async def ping_tick(self, ping_interval):
+        pass
+
+    async def __ping(self, client):
+        pass
+
+    # virtual function for client initialization
+    def __generate_clients(self, num_client):
+        self.clients = []
+        for i in range(num_client):
+            self.clients.append(Client(np.add(self.center, [random.uniform(0, 0.01),random.uniform(0, 0.01)])))
+
+class RoleUpdateTest(DefaultTest):
+    def __init__(self, session, target_address, center, num_client):
+        super(RoleUpdateTest, self).__init__(session, target_address, center, num_client)
+    
     async def __ping(self, client):
         # simulate random network fluctuation
         async with self.session.get(self.target_address + "ping", params={'id' : client.id}) as resp:
@@ -75,33 +86,47 @@ class DefaultTest(object):
                 client.status = UserStatus(json["status"])
                 print("Client", client.id, "has changed to", client.status)
 
-    async def __ping_tick(self, ping_interval):
+    async def ping_tick(self, ping_interval):
         while(True):
             print("Ping tick")
             for client in self.clients:
                 asyncio.ensure_future(self.__ping(client))
             await asyncio.sleep(ping_interval)
 
-    # virtual function for client initialization
-    def __generate_clients(self, num_client):
-        self.clients = []
-        for i in range(num_client):
-            self.clients.append(Client(np.add(self.center, [random.uniform(0, 0.01),random.uniform(0, 0.01)])))
+classes = inspect.getmembers(sys.modules[__name__], inspect.isclass)
+test_classes = {}
 
+for name, value in classes:
+    if issubclass(value, DefaultTest):
+        test_classes[name] = value
 
-async def main(loop):
+async def main(loop, test_type, clients, target_address):
     map_center = [37.4556699,126.9533264]
-    clients = 10
-    target_address = "http://localhost:8080/"
 
     async with aiohttp.ClientSession(loop=loop) as session:
-        test = DefaultTest(session, target_address, map_center, clients)
+        test = test_type(session, target_address, map_center, clients)
         initialized = await test.register()
         print("Registration result : ", initialized)
         if initialized:
-            await test.update(2)
+            # add all update functions here
+            await asyncio.gather(test.ping_tick(2))
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Test environment for a GroupPowerSaveServer.')
+    parser.add_argument('--test', 
+    type=str, 
+    choices=test_classes.keys(), 
+    default=DefaultTest.__name__,
+    help='Name of the test function')
+    parser.add_argument('--target_server', 
+    type=str,
+    default='http://localhost:8080/')
+    parser.add_argument('--num_clients',
+    type=int,
+    default=10)
+
+    args = parser.parse_args()
+
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(main(loop))
+    loop.run_until_complete(main(loop, test_classes[args.test], args.num_clients, args.target_server))
     loop.close()
