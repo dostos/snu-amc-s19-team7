@@ -169,7 +169,7 @@ class GroupPowerSaveServer(object):
 
         # let client know about a new role
         if pending_status is not None:
-            print("User ", id, " has changed to ", pending_status)
+            print("User", id, "has changed to", pending_status)
             return web.json_response({"status" : pending_status.value })
   
         return web.Response()

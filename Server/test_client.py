@@ -27,6 +27,7 @@ class Client(object):
     def __init__(self, position):
         self.id = Client.get_unique_id()
         self.position = position
+        self.status = UserStatus.NONE
 
 class DefaultTest(object):
     def __init__(self, session, target_address, center, num_client):
@@ -59,7 +60,7 @@ class DefaultTest(object):
                 return False
         return True
     
-    async def loop(self, ping_interval):
+    async def update(self, ping_interval):
         # add all async loop functions here!
         await asyncio.gather(self.__ping_tick(ping_interval))
 
@@ -68,9 +69,11 @@ class DefaultTest(object):
 
     async def __ping(self, client):
         # simulate random network fluctuation
-        await asyncio.sleep(0, 0.5)
         async with self.session.get(self.target_address + "ping", params={'id' : client.id}) as resp:
-            print(resp.content_type)
+            if resp.content_type == 'application/json':
+                json = await resp.json()
+                client.status = UserStatus(json["status"])
+                print("Client", client.id, "has changed to", client.status)
 
     async def __ping_tick(self, ping_interval):
         while(True):
@@ -96,7 +99,7 @@ async def main(loop):
         initialized = await test.register()
         print("Registration result : ", initialized)
         if initialized:
-            await test.loop(2)
+            await test.update(2)
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
