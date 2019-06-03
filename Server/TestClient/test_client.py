@@ -27,7 +27,7 @@ class Client(object):
     def __init__(self, position):
         self.id = Client.get_unique_id()
         self.position = position
-        self.status = UserStatus.NONE
+        self.status = UserStatus.NON_GROUP_MEMBER
 
 class DefaultTest(object):
     def __init__(self, session, target_address, center, num_client):
@@ -107,7 +107,7 @@ for name, value in classes:
 async def execute(loop, test_type, clients, target_address, callback = None):
     map_center = [37.4556699,126.9533264]
 
-    async with aiohttp.ClientSession(loop=loop) as session:
+    async with aiohttp.ClientSession() as session:
         test = test_type(session, target_address, map_center, clients)
         initialized = await test.register()
         print("Registration result : ", initialized)
