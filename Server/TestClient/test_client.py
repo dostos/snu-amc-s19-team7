@@ -60,13 +60,10 @@ class DefaultTest(object):
                 return False
         return True
 
-    async def non_member_tick(self):
+    async def non_member_tick(self, interval):
         pass
 
     async def ping_tick(self, ping_interval):
-        pass
-
-    async def __ping(self, client):
         pass
 
     async def update_callback(self, callback, interval):
@@ -88,14 +85,30 @@ class RoleUpdateTest(DefaultTest):
             if resp.content_type == 'application/json':
                 json = await resp.json()
                 client.status = UserStatus(json["status"])
-                print("Client", client.id, "has changed to", client.status)
 
     async def ping_tick(self, ping_interval):
         while(True):
-            print("Ping tick")
             for client in self.clients:
                 asyncio.ensure_future(self.__ping(client))
             await asyncio.sleep(ping_interval)
+    
+# TODO : Position get (client side loop)
+# Position update (server side) - non member
+# Position update (server side) - leader / distribute to members
+# Offset computation in a group matching stage
+# Network fluctuation simulation
+class PositionUpdateTest(RoleUpdateTest):
+    async def __non_member_update(self, client):
+        pass
+    
+    async def non_member_tick(self, interval):
+        while(True):
+            for client in self.clients:
+                asyncio.ensure_future(self.__non_member_update(client))
+            await asyncio.sleep(interval)
+
+
+
 
 classes = inspect.getmembers(sys.modules[__name__], inspect.isclass)
 test_classes = {}
@@ -113,4 +126,8 @@ async def execute(loop, test_type, clients, target_address, callback = None):
         print("Registration result : ", initialized)
         if initialized:
             # add all update functions here
-            await asyncio.gather(test.ping_tick(2), test.update_callback(callback, 0.5), loop=loop)
+            await asyncio.gather(
+                test.ping_tick(2), 
+                test.update_callback(callback, 0.5),
+                test.non_member_tick(3), 
+                loop=loop)
