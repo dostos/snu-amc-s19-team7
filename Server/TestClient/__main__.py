@@ -1,6 +1,13 @@
 from .test_client import *
 import asyncio
 
+classes = inspect.getmembers(sys.modules[__name__], inspect.isclass)
+test_classes = {}
+
+for name, value in classes:
+    if issubclass(value, DefaultTest):
+        test_classes[name] = value
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test environment for a GroupPowerSaveServer.')
     parser.add_argument('--test', 

@@ -107,16 +107,6 @@ class PositionUpdateTest(RoleUpdateTest):
                 asyncio.ensure_future(self.__non_member_update(client))
             await asyncio.sleep(interval)
 
-
-
-
-classes = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-test_classes = {}
-
-for name, value in classes:
-    if issubclass(value, DefaultTest):
-        test_classes[name] = value
-
 async def execute(loop, test_type, clients, target_address, callback = None):
     map_center = [37.4556699,126.9533264]
 
