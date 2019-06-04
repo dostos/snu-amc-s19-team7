@@ -27,6 +27,8 @@ class Client(object):
     def __init__(self, position):
         self.id = Client.get_unique_id()
         self.position = position
+        self.position_from_server = position
+        self.group_id = None
         self.status = UserStatus.NON_GROUP_MEMBER
 
 class DefaultTest(object):
@@ -60,7 +62,7 @@ class DefaultTest(object):
                 return False
         return True
 
-    async def non_member_tick(self, interval):
+    async def gps_tick(self, interval):
         pass
 
     async def ping_tick(self, ping_interval):
@@ -69,6 +71,8 @@ class DefaultTest(object):
     async def update_callback(self, callback, interval):
         if callback is not None:
             while(True):
+                if self.session.closed:
+                    break
                 callback(self.clients)
                 await asyncio.sleep(interval)
 
@@ -88,6 +92,8 @@ class RoleUpdateTest(DefaultTest):
 
     async def ping_tick(self, ping_interval):
         while(True):
+            if self.session.closed:
+                break
             for client in self.clients:
                 asyncio.ensure_future(self.__ping(client))
             await asyncio.sleep(ping_interval)
@@ -98,19 +104,26 @@ class RoleUpdateTest(DefaultTest):
 # Offset computation in a group matching stage
 # Network fluctuation simulation
 class PositionUpdateTest(RoleUpdateTest):
-    async def __non_member_update(self, client):
-        pass
+    async def __get_position(self, client):
+        async with self.session.get(self.target_address + "user-data", params={'id' : client.id}) as resp:
+            if resp.content_type == 'application/json':
+                json = await resp.json()
+                client.group_id = json["group_id"]
+                if "latitude" in json and "longitude" in json:
+                    client.position_from_server = [json["latitude"], json["longitude"]]
     
-    async def non_member_tick(self, interval):
+    async def gps_tick(self, interval):
         while(True):
+            if self.session.closed:
+                break
             for client in self.clients:
-                asyncio.ensure_future(self.__non_member_update(client))
+                asyncio.ensure_future(self.__get_position(client))
             await asyncio.sleep(interval)
 
 async def execute(loop, test_type, clients, target_address, callback = None):
     map_center = [37.4556699,126.9533264]
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(loop=loop) as session:
         test = test_type(session, target_address, map_center, clients)
         initialized = await test.register()
         print("Registration result : ", initialized)
@@ -119,5 +132,5 @@ async def execute(loop, test_type, clients, target_address, callback = None):
             await asyncio.gather(
                 test.ping_tick(2), 
                 test.update_callback(callback, 0.5),
-                test.non_member_tick(3), 
+                test.gps_tick(3), 
                 loop=loop)

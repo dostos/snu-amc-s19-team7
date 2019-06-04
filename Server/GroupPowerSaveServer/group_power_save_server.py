@@ -132,16 +132,13 @@ class GroupPowerSaveServer(object):
         
         user = self.user_dict[id]
 
-        return web.json_response(
-            {
-                "id" : user.id,
-                "group_id" : user.group_id,
-                "status" : user.status.value,
-                "gps" : user.gps,
-                "acceleration" : user.acceleration,
-                # TODO : more informations (gps position ...)
-            }
-        )
+        user_data = { "group_id" : user.group_id }
+
+        if len(user.gps) != 0:
+            user_data["latitude"] = user.gps[-1][1]
+            user_data["longitude"] = user.gps[-1][2]
+
+        return web.json_response(user_data)
     
     async def __ping_handler(self, request: web.Request) -> web.Response:
         id = str(request.rel_url.query['id'])
