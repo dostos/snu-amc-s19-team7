@@ -73,10 +73,9 @@ class DefaultTest(object):
         pass
 
     async def update_callback(self, callback, interval):
+        print(callback)
         if callback is not None:
             while(True):
-                if self.session.closed:
-                    break
                 callback(self.clients)
                 await asyncio.sleep(interval)
 
@@ -109,13 +108,17 @@ class RoleUpdateTest(DefaultTest):
 # Network fluctuation simulation
 class PositionUpdateTest(RoleUpdateTest):
     async def __set_position(self, client : Client):
+        if client.status == UserStatus.GROUP_LEADER:
+            client.position[0] += 0.001
+            client.position[1] += 0.001
+        print("Client", client.id, "trying to send", client.position)
         async with self.session.put(
             self.target_address + "user-data", 
             params={'id' : client.id}, 
             json={
                 'time' : datetime.now().microsecond,
                 'latitude' : client.position[0],
-                'longitude' : client.position[1] }):
+                'longitude' : client.position[1] }): 
             client.gps_request_count += 1
 
     async def gps_set_tick(self, status, interval):
@@ -133,6 +136,9 @@ class PositionUpdateTest(RoleUpdateTest):
                 json = await resp.json()
                 if "latitude" in json and "longitude" in json:
                     client.position_from_server = [json["latitude"], json["longitude"]]
+                    if client.status == UserStatus.GROUP_MEMBER:
+                        client.position = client.position_from_server
+                    print("Client", client.id, "got position", client.position_from_server)
     
     async def gps_get_tick(self, interval):
         while(True):
@@ -154,7 +160,7 @@ async def execute(loop, test_type, clients, target_address, callback = None):
             await asyncio.gather(
                 test.ping_tick(10), 
                 test.update_callback(callback, 1),
-                test.gps_set_tick(UserStatus.NON_GROUP_MEMBER, 10),
-                test.gps_set_tick(UserStatus.GROUP_LEADER, 5),
-                test.gps_get_tick(3), 
+                test.gps_set_tick(UserStatus.NON_GROUP_MEMBER, 4),
+                test.gps_set_tick(UserStatus.GROUP_LEADER, 1),
+                test.gps_get_tick(1), 
                 loop=loop)

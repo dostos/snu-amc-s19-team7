@@ -33,7 +33,7 @@ class GroupPowerSaveServer(object):
         web.run_app(self.app)
 
     def __duty_cycle_tick(self, interval: int):
-        leader_update_interval = 10
+        leader_update_interval = 30
         while(True):
             # role update
             with self.group_dict_lock:
@@ -53,18 +53,25 @@ class GroupPowerSaveServer(object):
             
             # temporal : manual grouping 
             if len(self.non_member_id_set) is not 0:
-                group = Group(list(self.non_member_id_set))
-                with self.group_dict_lock:
-                    self.group_dict[group.id] = group
-
+                can_match = True
                 for id in self.non_member_id_set:
-                    if id == group.current_leader_id:
-                        role = UserStatus.GROUP_LEADER
-                    else:
-                        role = UserStatus.GROUP_MEMBER
-                    self.user_dict[id].reserve_status_change(role, group.id)
+                    if len(self.user_dict[id].gps) == 0:
+                        can_match = False
+                
+                if can_match:
+                    group = Group(list(self.non_member_id_set))
+                    with self.group_dict_lock:
+                        self.group_dict[group.id] = group
 
-                self.non_member_id_set.clear()
+                    for id in self.non_member_id_set:
+                        if id == group.current_leader_id:
+                            role = UserStatus.GROUP_LEADER
+                        else:
+                            role = UserStatus.GROUP_MEMBER
+                            self.user_dict[id].update_offset(self.user_dict[group.current_leader_id])
+                        self.user_dict[id].reserve_status_change(role, group.id)
+
+                    self.non_member_id_set.clear()
                 
             time.sleep(interval)
 
@@ -135,9 +142,12 @@ class GroupPowerSaveServer(object):
             user.update_data(result)
 
             if user.group_id is not None:
+                group : Group = self.group_dict[user.group_id]
                 # distribute position to users
-                if self.group_dict[user.group_id].current_leader_id == id:
-                    pass
+                if group.current_leader_id == id:
+                    for member_id in group.member_id_list:
+                        if member_id != id:
+                            self.user_dict[member_id].update_data_from_leader(user)
 
             return web.Response()
         else:

@@ -24,17 +24,13 @@ class User(object):
     def update_data_from_leader(self, leader):
         if self._offset is not None:
             leader_data = np.add(leader.gps[-1], [0, self._offset[0], self._offset[1]])
-            print("prev data : ", self._gps[-1])
             self._gps.append(leader_data)
-            print("new data : ", self._gps[-1])
 
     def update_data(self, data):
         # TODO : store latitude / longitude / accel data
         # Need lock here?
         if 'time' in data and 'latitude' in data and 'longitude' in data:
-            # ignore outdated data
-            if len(self._gps) == 0 or self._gps[-1][0] < data['time']:
-                self._gps.append([data['time'], data['latitude'], data['longitude']])
+            self._gps.append([data['time'], data['latitude'], data['longitude']])
         elif 'acceleration' in data:
             self._acceleration = data['acceleration']
 
