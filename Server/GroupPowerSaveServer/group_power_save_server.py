@@ -115,8 +115,14 @@ class GroupPowerSaveServer(object):
 
         succeess, result = await self.__parse_json(request, ["time"])
         if succeess:
-            user = self.user_dict[id]
+            user : User = self.user_dict[id]
             user.update_data(result)
+
+            if user.group_id is not None:
+                # distribute position to users
+                if self.group_dict[user.group_id].current_leader_id == id:
+                    pass
+
             return web.Response()
         else:
             return web.Response(status=422, text=result)
@@ -156,6 +162,11 @@ class GroupPowerSaveServer(object):
             if group.current_leader_id != id:
                 self.user_dict[group.current_leader_id].reserve_status_change(UserStatus.GROUP_MEMBER)
                 group.confirm_leader_update(id)
+                # calculate user offsets
+
+                for member in group.member_id_list:
+                    if member != id:
+                        self.user_dict[member].update_offset(user)
 
         # let client know about a new role
         if pending_status is not None:
@@ -163,6 +174,3 @@ class GroupPowerSaveServer(object):
             return web.json_response({"status" : pending_status.value, "group_id" : user.group_id })
   
         return web.Response()
-
-from ipyleaflet import *
-Marker.on_mouseover()

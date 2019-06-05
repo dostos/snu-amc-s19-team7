@@ -103,8 +103,7 @@ class RoleUpdateTest(DefaultTest):
                 asyncio.ensure_future(self.__ping(client))
             await asyncio.sleep(ping_interval)
     
-# TODO : Position get (client side loop)
-# Position update (server side) - non member
+# TODO :
 # Position update (server side) - leader / distribute to members
 # Offset computation in a group matching stage
 # Network fluctuation simulation
