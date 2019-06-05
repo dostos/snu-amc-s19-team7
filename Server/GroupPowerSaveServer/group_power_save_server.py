@@ -5,14 +5,12 @@ import json
 
 from .group import Group
 from .user import User, UserStatus
-from .data_visualizer import data_to_html
 # TODO : SSL / security logic ?                          
 
 class GroupPowerSaveServer(object):
     def __init__(self):
         self.app = web.Application()
         #TODO register more handlers
-        self.app.add_routes([web.get("/", self.__index_handler)])
         self.app.add_routes([web.post('/register', self.__register_handler)])
         self.app.add_routes([web.put('/user-data', self.__put__data_handler)])
         self.app.add_routes([web.get("/user-data",self.__get_data_handler)])
@@ -92,11 +90,6 @@ class GroupPowerSaveServer(object):
 
         except ValueError:
             return False, "Not able to parse json"
-    
-    async def __index_handler(self, request: web.Request) -> web.Response:
-        with self.user_dict_lock and self.group_dict_lock:
-            return web.Response(content_type="html", body=data_to_html(self.user_dict, self.group_dict))
-
 
     async def __register_handler(self, request: web.Request) -> web.Response:
         succeess, result = await self.__parse_json(request, ["id"])
