@@ -27,9 +27,10 @@ class Client(object):
     def __init__(self, position):
         self.id = Client.get_unique_id()
         self.position = position
-        self.position_from_server = position
+        self.position_from_server = None
         self.group_id = None
         self.status = UserStatus.NON_GROUP_MEMBER
+        self.gps_request_count = 0
 
 class DefaultTest(object):
     def __init__(self, session, target_address, center, num_client):
@@ -62,7 +63,10 @@ class DefaultTest(object):
                 return False
         return True
 
-    async def gps_tick(self, interval):
+    async def gps_get_tick(self, interval):
+        pass
+        
+    async def gps_set_tick(self, status, interval):
         pass
 
     async def ping_tick(self, ping_interval):
@@ -80,7 +84,7 @@ class DefaultTest(object):
     def __generate_clients(self, num_client):
         self.clients = []
         for i in range(num_client):
-            self.clients.append(Client(np.add(self.center, [random.uniform(0, 0.01),random.uniform(0, 0.01)])))
+            self.clients.append(Client(np.add(self.center, [random.uniform(-0.005, 0.005), random.uniform(-0.005, 0.005)])))
 
 class RoleUpdateTest(DefaultTest):
     async def __ping(self, client):
@@ -89,6 +93,7 @@ class RoleUpdateTest(DefaultTest):
             if resp.content_type == 'application/json':
                 json = await resp.json()
                 client.status = UserStatus(json["status"])
+                client.group_id = json["group_id"]
 
     async def ping_tick(self, ping_interval):
         while(True):
@@ -104,15 +109,33 @@ class RoleUpdateTest(DefaultTest):
 # Offset computation in a group matching stage
 # Network fluctuation simulation
 class PositionUpdateTest(RoleUpdateTest):
-    async def __get_position(self, client):
+    async def __set_position(self, client : Client):
+        async with self.session.put(
+            self.target_address + "user-data", 
+            params={'id' : client.id}, 
+            json={
+                'time' : datetime.now().microsecond,
+                'latitude' : client.position[0],
+                'longitude' : client.position[1] }):
+            client.gps_request_count += 1
+
+    async def gps_set_tick(self, status, interval):
+        while(True):
+            if self.session.closed:
+                break
+            for client in self.clients:
+                if client.status is status:
+                    asyncio.ensure_future(self.__set_position(client))
+            await asyncio.sleep(interval)
+
+    async def __get_position(self, client :Client):
         async with self.session.get(self.target_address + "user-data", params={'id' : client.id}) as resp:
             if resp.content_type == 'application/json':
                 json = await resp.json()
-                client.group_id = json["group_id"]
                 if "latitude" in json and "longitude" in json:
                     client.position_from_server = [json["latitude"], json["longitude"]]
     
-    async def gps_tick(self, interval):
+    async def gps_get_tick(self, interval):
         while(True):
             if self.session.closed:
                 break
@@ -130,7 +153,9 @@ async def execute(loop, test_type, clients, target_address, callback = None):
         if initialized:
             # add all update functions here
             await asyncio.gather(
-                test.ping_tick(2), 
-                test.update_callback(callback, 0.5),
-                test.gps_tick(3), 
+                test.ping_tick(10), 
+                test.update_callback(callback, 1),
+                test.gps_set_tick(UserStatus.NON_GROUP_MEMBER, 10),
+                test.gps_set_tick(UserStatus.GROUP_LEADER, 5),
+                test.gps_get_tick(3), 
                 loop=loop)

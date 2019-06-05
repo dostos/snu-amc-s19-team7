@@ -117,7 +117,6 @@ class GroupPowerSaveServer(object):
         if succeess:
             user = self.user_dict[id]
             user.update_data(result)
-            print("trying to put data from ", id, " ", result)
             return web.Response()
         else:
             return web.Response(status=422, text=result)
@@ -132,7 +131,7 @@ class GroupPowerSaveServer(object):
         
         user = self.user_dict[id]
 
-        user_data = { "group_id" : user.group_id }
+        user_data = { }
 
         if len(user.gps) != 0:
             user_data["latitude"] = user.gps[-1][1]
@@ -146,13 +145,14 @@ class GroupPowerSaveServer(object):
         # id validation
         if id not in self.user_dict:
             return web.Response(status=422, text="Not valid id")
-        
-        pending_status = self.user_dict[id].get_pending_status()
+
+        user = self.user_dict[id]
+        pending_status = user.get_pending_status()
 
         # update leader the group
         # TODO : missing responde delivery check
         if pending_status is UserStatus.GROUP_LEADER:
-            group = self.group_dict[self.user_dict[id].group_id]
+            group = self.group_dict[user.group_id]
             if group.current_leader_id != id:
                 self.user_dict[group.current_leader_id].reserve_status_change(UserStatus.GROUP_MEMBER)
                 group.confirm_leader_update(id)
@@ -160,6 +160,9 @@ class GroupPowerSaveServer(object):
         # let client know about a new role
         if pending_status is not None:
             print("User", id, "has changed to", pending_status)
-            return web.json_response({"status" : pending_status.value })
+            return web.json_response({"status" : pending_status.value, "group_id" : user.group_id })
   
         return web.Response()
+
+from ipyleaflet import *
+Marker.on_mouseover()
