@@ -103,8 +103,6 @@ class RoleUpdateTest(DefaultTest):
             await asyncio.sleep(ping_interval)
     
 # TODO :
-# Position update (server side) - leader / distribute to members
-# Offset computation in a group matching stage
 # Network fluctuation simulation
 class PositionUpdateTest(RoleUpdateTest):
     async def __set_position(self, client : Client):
