@@ -1,6 +1,9 @@
 package com.example.grouppowersave;
 
+import android.app.AlarmManager;
 import android.app.IntentService;
+import android.app.PendingIntent;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Sensor;
@@ -14,6 +17,8 @@ import android.location.LocationProvider;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.IBinder;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -22,24 +27,31 @@ import java.io.IOException;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class GPSService extends IntentService implements SensorEventListener {
+public class GPSService extends Service implements SensorEventListener {
 
-    public GPSService() {
-        super("GPSService");
-    }
+    //public GPSService() {super("GPSService");}
 
     public static String url = "http://ec2-13-125-224-189.ap-northeast-2.compute.amazonaws.com:8080/register";
     private SensorManager mSensorManager;
     LocationManager mLocationManager;
     Context mContext;
-
+    static HttpClient client;
+    Handler handler;
+    Runner runner;
+    static Location currentLocation;
+    static String uniqueUserID = "IDnotSet";
+    static int groupStatus = 0;
     LocationListener locationListenerGPS = new LocationListener() {
         @Override
         public void onLocationChanged(android.location.Location location) {
+            if(location == null)
+                Log.e("locationupdate","location is null");
+            currentLocation = location;
             double latitude = location.getLatitude();
             double longitude = location.getLongitude();
             String msg = "New Latitude: " + latitude + "New Longitude: " + longitude;
             Log.e("location", msg);
+            Log.e("locationString", currentLocation.toString());
 
         }
 
@@ -56,10 +68,47 @@ public class GPSService extends IntentService implements SensorEventListener {
         }
     };
 
+
     @Override
-    protected void onHandleIntent(Intent workIntent) {
-        //execute code here, information can be passed to this methode via the intent, but we won't use it most likely
+    public IBinder onBind(Intent arg0) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        // TODO Auto-generated method stub
+        return START_STICKY;
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // TODO Auto-generated method stub
+        Intent restartService = new Intent(getApplicationContext(),
+                this.getClass());
+        restartService.setPackage(getPackageName());
+        PendingIntent restartServicePI = PendingIntent.getService(
+                getApplicationContext(), 1, restartService,
+                PendingIntent.FLAG_ONE_SHOT);
+
+        //Restart the service once it has been killed android
+
+
+        AlarmManager alarmService = (AlarmManager)getApplicationContext().getSystemService(Context.ALARM_SERVICE);
+        alarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() +100, restartServicePI);
+
+    }
+
+    @Override
+    public void onCreate() {
+        // TODO Auto-generated method stub
+        super.onCreate();
+
+        //start a separate thread and start listening to your network object
+
+        //INITIALISATION
         Log.e("GPSService", "started");
+        client = new HttpClient();
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         //have to change position of registerListener when we want to use accelerometer.
         mSensorManager.registerListener(this,
@@ -75,14 +124,25 @@ public class GPSService extends IntentService implements SensorEventListener {
         } catch (SecurityException e) {
             Log.e("SecurityException", e.toString());
         }
-
         connectToServer();
+        handler = new Handler();
+        runner = new Runner();
+        handler.post(runner);
+
+    }
+
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacks(runner);
+        Log.e("Background Service: ","Terminated");
     }
 
     public static void connectToServer() {
         final JSONObject jsonO = new JSONObject();
         try {
-            jsonO.put("ID", "1");
+            jsonO.put("register", "Dieser Wert hat keinen Sinn, aber ich schreib ihn mal auf deutsch.");
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -93,9 +153,10 @@ public class GPSService extends IntentService implements SensorEventListener {
             @Override
             protected String doInBackground(Void... voids) {
                 try {
-                    HttpClient client = new HttpClient();
-                    String body = client.post(url, jsonS);
-                    Log.e("Sever Answer:", body);
+
+                    String body = client.register(url, jsonS);
+                    Log.e("UniqueID (registration)", body);
+                    uniqueUserID = body;
                 } catch (IOException ioe) {
                     ioe.printStackTrace();
                 }
@@ -160,12 +221,109 @@ public class GPSService extends IntentService implements SensorEventListener {
         if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             double x = sensorEvent.values[0], y = sensorEvent.values[1], z = sensorEvent.values[2];
             //send this values when we want.
-            //    Log.d("x,y,z",x+","+y+","+z);
+            //    Log.d("Acc: x,y,z",x+","+y+","+z);
         }
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
 
+    }
+    public static void providePosition() {
+        final JSONObject jsonO = new JSONObject();
+        try {
+            if(currentLocation != null){
+                Log.e("ProvideLocationToServer", uniqueUserID);
+                Log.e("ProvideLocationToServer", currentLocation.toString());
+            jsonO.put("user-data", uniqueUserID+currentLocation.toString());}
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        final String jsonS = jsonO.toString();
+
+        new AsyncTask<Void, Void, String>() {
+
+            @Override
+            protected String doInBackground(Void... voids) {
+                try {
+                    Log.e("ProvideLocationToServer", jsonS);
+                    client.providePosition(url, jsonS);
+                } catch (IOException ioe) {
+                    ioe.printStackTrace();
+                }
+                return null;
+            }
+        }.execute();
+    }
+    public static void receivePosition(){
+        new AsyncTask<Void, Void, String>() {
+
+            @Override
+            protected String doInBackground(Void... voids) {
+                try {
+                    String pos = client.getPosition(url, uniqueUserID);
+                    Log.e("LocationReceived", pos);
+                    Log.e("location update",pos);
+                    currentLocation = stringToLocation(pos);
+
+
+                } catch (IOException ioe) {
+                    ioe.printStackTrace();
+                }
+                return null;
+            }
+        }.execute();
+    }
+    public static void receiveGroupStatus(){
+        new AsyncTask<Void, Void, String>() {
+
+            @Override
+            protected String doInBackground(Void... voids) {
+                try {
+                    String ans = client.ping(url, uniqueUserID);
+                    Log.e("GroupStatusReceived", ans);
+                    groupStatus = Integer.parseInt(ans);
+
+                } catch (IOException ioe) {
+                    ioe.printStackTrace();
+                }
+                return null;
+            }
+        }.execute();
+    }
+
+    //location.toString fromat looks like gps 75.000000,75.000000 acc=500 et=+1d22h29m13s93ms mock
+    public static Location stringToLocation(String locS){
+        char[] locC = locS.toCharArray();
+        String locSpre = "";
+        for(int i = 1; i< locS.length(); i++){
+            if(!(locC[i] != '0' && locC[i] != '1' && locC[i] != '2' && locC[i] != '3' && locC[i] != '4' && locC[i] != '5' && locC[i] != '6' && locC[i] != '7' &&locC[i] != '8' && locC[i] != '9' && locC[i] != ' ' && locC[i] != ',' && locC[i] != '.')){
+                locSpre = locSpre + locC[i];
+            }
+        }
+        String[] locA = locSpre.split(" ");
+        String[] longlatS = locA[1].split(",");
+        Location loc = new Location(currentLocation);
+        loc.setLatitude(Double.parseDouble(longlatS[0]));
+        loc.setLongitude(Double.parseDouble(longlatS[1]));
+        loc.setAccuracy(Float.parseFloat(locA[2]));
+        //Time has format like +1d22h29m13s93ms - not needed but could be added
+        Log.e("str to loc result",loc.toString());
+        return loc;
+    }
+    public class Runner implements Runnable {
+        //Should run every 5 seconds
+        @Override
+        public void run() {
+            Log.e("Duty cycle", "Running");
+            handler.postDelayed(this, 1000 * 5);
+            receiveGroupStatus();
+            if(groupStatus == 0){
+                providePosition();
+            }else {
+                receivePosition();
+            }
+
+        }
     }
 }
