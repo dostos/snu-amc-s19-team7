@@ -31,6 +31,7 @@ public class GPSService extends Service implements SensorEventListener {
 
     //public GPSService() {super("GPSService");}
 
+    public static double ACC_THRESHOLD = 2.0;
     public static String url = "http://ec2-13-125-224-189.ap-northeast-2.compute.amazonaws.com:8080/register";
     private SensorManager mSensorManager;
     LocationManager mLocationManager;
@@ -218,8 +219,15 @@ public class GPSService extends Service implements SensorEventListener {
 
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
-        if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+        if (sensorEvent.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
             double x = sensorEvent.values[0], y = sensorEvent.values[1], z = sensorEvent.values[2];
+            double f = Math.sqrt(x*x+y*y+z*z);
+
+            if(f > ACC_THRESHOLD){
+                long currTime = System.currentTimeMillis();
+                Log.d("TAG","Acc>2.0 "+currTime);
+            }
+
             //send this values when we want.
             //    Log.d("Acc: x,y,z",x+","+y+","+z);
         }
