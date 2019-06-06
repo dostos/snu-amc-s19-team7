@@ -5,14 +5,12 @@ import json
 
 from .group import Group
 from .user import User, UserStatus
-from .data_visualizer import data_to_html
 # TODO : SSL / security logic ?                          
 
 class GroupPowerSaveServer(object):
     def __init__(self):
         self.app = web.Application()
         #TODO register more handlers
-        self.app.add_routes([web.get("/", self.__index_handler)])
         self.app.add_routes([web.post('/register', self.__register_handler)])
         self.app.add_routes([web.put('/user-data', self.__put__data_handler)])
         self.app.add_routes([web.get("/user-data",self.__get_data_handler)])
@@ -70,6 +68,22 @@ class GroupPowerSaveServer(object):
                 
             time.sleep(interval)
 
+<<<<<<< HEAD
+    async def __register_handler(self, request):
+        #data = await request.json()
+        # TODO : Get unique identification from a user to prevent multiple registration
+        if request.can_read_body:
+            print(await request.json())
+        current_id = self.unique_user_id_count
+        self.unique_user_id_count += 1
+        print("User registered id : ", current_id)
+        return web.Response(text=str(current_id))
+
+    async def __put__data_handler(self, request):
+        if request.can_read_body:
+            print(await request.json())
+        return web.Response()
+=======
     async def __parse_json(self, request: web.Request, must_contains : list = []):    
         """
         parse json file from request\n
@@ -92,11 +106,6 @@ class GroupPowerSaveServer(object):
 
         except ValueError:
             return False, "Not able to parse json"
-    
-    async def __index_handler(self, request: web.Request) -> web.Response:
-        with self.user_dict_lock and self.group_dict_lock:
-            return web.Response(content_type="html", body=data_to_html(self.user_dict, self.group_dict))
-
 
     async def __register_handler(self, request: web.Request) -> web.Response:
         succeess, result = await self.__parse_json(request, ["id"])
@@ -122,9 +131,14 @@ class GroupPowerSaveServer(object):
 
         succeess, result = await self.__parse_json(request, ["time"])
         if succeess:
-            user = self.user_dict[id]
+            user : User = self.user_dict[id]
             user.update_data(result)
-            print("trying to put data from ", id, " ", result)
+
+            if user.group_id is not None:
+                # distribute position to users
+                if self.group_dict[user.group_id].current_leader_id == id:
+                    pass
+
             return web.Response()
         else:
             return web.Response(status=422, text=result)
@@ -139,16 +153,13 @@ class GroupPowerSaveServer(object):
         
         user = self.user_dict[id]
 
-        return web.json_response(
-            {
-                "id" : user.id,
-                "group_id" : user.group_id,
-                "status" : user.status.value,
-                "gps" : user.gps,
-                "acceleration" : user.acceleration,
-                # TODO : more informations (gps position ...)
-            }
-        )
+        user_data = { }
+
+        if len(user.gps) != 0:
+            user_data["latitude"] = user.gps[-1][1]
+            user_data["longitude"] = user.gps[-1][2]
+
+        return web.json_response(user_data)
     
     async def __ping_handler(self, request: web.Request) -> web.Response:
         id = str(request.rel_url.query['id'])
@@ -156,20 +167,26 @@ class GroupPowerSaveServer(object):
         # id validation
         if id not in self.user_dict:
             return web.Response(status=422, text="Not valid id")
-        
-        pending_status = self.user_dict[id].get_pending_status()
+
+        user = self.user_dict[id]
+        pending_status = user.get_pending_status()
 
         # update leader the group
         # TODO : missing responde delivery check
         if pending_status is UserStatus.GROUP_LEADER:
-            group = self.group_dict[self.user_dict[id].group_id]
+            group = self.group_dict[user.group_id]
             if group.current_leader_id != id:
                 self.user_dict[group.current_leader_id].reserve_status_change(UserStatus.GROUP_MEMBER)
                 group.confirm_leader_update(id)
+                # calculate user offsets
+
+                for member in group.member_id_list:
+                    if member != id:
+                        self.user_dict[member].update_offset(user)
 
         # let client know about a new role
         if pending_status is not None:
             print("User", id, "has changed to", pending_status)
-            return web.json_response({"status" : pending_status.value })
+            return web.json_response({"status" : pending_status.value, "group_id" : user.group_id })
   
         return web.Response()

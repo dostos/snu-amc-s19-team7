@@ -25,5 +25,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(execute(loop, test_classes[args.test], args.num_clients, args.target_server, lambda clients: print(clients)))
+    loop.run_until_complete(execute(loop, test_classes[args.test], args.num_clients, args.target_server))
     loop.close()
