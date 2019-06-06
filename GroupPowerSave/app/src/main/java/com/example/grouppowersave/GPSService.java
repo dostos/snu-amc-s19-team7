@@ -23,6 +23,8 @@ import android.os.SystemClock;
 import android.util.Log;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -38,14 +40,18 @@ public class GPSService extends Service implements SensorEventListener {
     static HttpClient client;
     Handler handler;
     Runner runner;
+    int ACC_DATASET_SIZE = 600;
+    double[][] accData = new double[ACC_DATASET_SIZE][4];
+    public double[][] accData_rdy;
+    int accCounter = 0;
     static Location currentLocation;
     static String uniqueUserID = "IDnotSet";
     static int groupStatus = 0;
     LocationListener locationListenerGPS = new LocationListener() {
         @Override
         public void onLocationChanged(android.location.Location location) {
-            if(location == null)
-                Log.e("locationupdate","location is null");
+            if(location == null){
+                Log.e("locationupdate","location is null");}
             currentLocation = location;
             double latitude = location.getLatitude();
             double longitude = location.getLongitude();
@@ -114,16 +120,6 @@ public class GPSService extends Service implements SensorEventListener {
         mSensorManager.registerListener(this,
                 mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
         mContext = this;
-        mLocationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
-        try {
-            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
-                    2000,
-                    0, locationListenerGPS);
-            getMockLocation();
-
-        } catch (SecurityException e) {
-            Log.e("SecurityException", e.toString());
-        }
         connectToServer();
         handler = new Handler();
         runner = new Runner();
@@ -164,7 +160,18 @@ public class GPSService extends Service implements SensorEventListener {
             }
         }.execute();
     }
+    private void getRealLocation(){
+        mLocationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
+        mLocationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
+        try {
+            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
+                    100,
+                    0, locationListenerGPS);
 
+        } catch (SecurityException e) {
+            Log.e("SecurityException", e.toString());
+        }
+    }
     private void getMockLocation() {
         if (mLocationManager.getProvider(LocationManager.GPS_PROVIDER) != null) {
             mLocationManager.removeTestProvider(LocationManager.GPS_PROVIDER);
@@ -187,8 +194,8 @@ public class GPSService extends Service implements SensorEventListener {
 
         Location newLocation = new Location(LocationManager.GPS_PROVIDER);
 
-        newLocation.setLatitude(10 + System.currentTimeMillis() % 100);
-        newLocation.setLongitude(10 + System.currentTimeMillis() % 100);
+        newLocation.setLatitude(currentLocation.getLatitude());
+        newLocation.setLongitude(currentLocation.getLongitude());
         newLocation.setAccuracy(500);
         newLocation.setTime(System.currentTimeMillis());
         if (Build.VERSION.SDK_INT >= 17) {
@@ -222,7 +229,51 @@ public class GPSService extends Service implements SensorEventListener {
             double x = sensorEvent.values[0], y = sensorEvent.values[1], z = sensorEvent.values[2];
             //send this values when we want.
             //    Log.d("Acc: x,y,z",x+","+y+","+z);
+
+            accData[accCounter][0] = x;
+            accData[accCounter][1] = y;
+            accData[accCounter][2] = z;
+            accData[accCounter][3] = System.currentTimeMillis();
+            accCounter++;
+            if(accCounter == ACC_DATASET_SIZE){
+                accCounter = 0;
+                accData_rdy = accData;
+                accData = new double[ACC_DATASET_SIZE][4];
+            }
+
         }
+    }
+    //returns the timestamps of the peaks of the accelerometer dataset
+    public int[] calculatePeaks(double[][] dataset){
+        List<Double> resList = new ArrayList<Double>();
+        double threshold = 1.2; //factor of which a value should be bigger than the average value to be considered a peak
+    double[] dataLen = new double[dataset.length];
+    double temp = 0;
+        for(int i = 0; i<dataset.length;i++){
+        dataLen[i] =  dataset[i][0]+dataset[i][1]+dataset[i][2];
+        temp = temp+dataLen[i];
+    }
+    double avg = temp/dataset.length;
+
+        for(int i = 0; i<dataLen.length; i++){
+            if(dataLen[i]>avg*threshold){
+                int peakLoc = i;
+                double peakVal = dataLen[i];
+                while(dataLen[i]>avg*threshold &&  i<dataLen.length){
+                    i++;
+                    if(dataLen[i]>peakVal){
+                        peakLoc = i;
+                        peakVal = dataLen[i];
+                    }
+                }
+                resList.add(dataset[peakLoc][3]); //adds the time of the peak location to the list
+            }
+        }
+        int[] result = new int[resList.size()];
+        for(int i = 0; i<resList.size();i++){
+            result[i] = resList.get(i).intValue();
+        }
+        return result;
     }
 
     @Override
@@ -319,9 +370,11 @@ public class GPSService extends Service implements SensorEventListener {
             handler.postDelayed(this, 1000 * 5);
             receiveGroupStatus();
             if(groupStatus == 0){
+                getRealLocation();
                 providePosition();
             }else {
                 receivePosition();
+            //    getMockLocation();
             }
 
         }

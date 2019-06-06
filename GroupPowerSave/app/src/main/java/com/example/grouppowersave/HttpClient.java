@@ -41,7 +41,7 @@ public class HttpClient {
     }
 
     public static String ping(String getUrl, String id) throws IOException {
-        //URL url = new URL(getUrl);             // use this if ID is transmitted via RequestPoperty
+        //URL url = new URL(getUrl);             // use this if ID is transmitted via RequestProperty
         URL url = appendUri(getUrl, "ping"+id).toURL(); //generate query string
         String readLine = null;
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
@@ -89,6 +89,7 @@ public class HttpClient {
             this.sendData(con, data);
             Log.d("Location sent response:", ""+con.getResponseCode());
     }
+
 
     protected void sendData(HttpURLConnection con, String data) throws IOException {
         DataOutputStream wr = null;
