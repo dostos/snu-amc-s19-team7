@@ -19,6 +19,7 @@ if __name__ == '__main__':
     type=str,
     default='http://localhost:8080/')
     parser.add_argument('--num_clients',
+    help='Number of mock clients that you want to spawn',
     type=int,
     default=10)
 
