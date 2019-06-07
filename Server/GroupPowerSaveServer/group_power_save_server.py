@@ -27,6 +27,8 @@ class GroupPowerSaveServer(object):
         self.group_dict_lock = Lock()
         self.group_dict = {}
 
+        self.prev_initial_match = []
+
         for thread in self.threads:
             thread.start()
 
@@ -44,26 +46,34 @@ class GroupPowerSaveServer(object):
             # TODO duty cycle for group validation / remove non-active user
 
             time.sleep(interval)
+    
+    def __initial_match(self, candidate_list: list) -> list:
+        # TODO group matching for non-grouped user
+        # 1 : dbscan algorithm + gps based movement vector alignment
+        # 2 : acceleration
+        # Input : Non registered member id
+        # output : list of initial matched group(list of member id) 
+        return [candidate_list.copy()]
+
+    def __group_match(self, candidate_list: list) -> list:
+        # Input : list of list of member id
+        # output : list of matched group(list of member id) 
+        return candidate_list.copy()
 
     def __group_match_tick(self, interval: int):
+        
         while(True):
-            # TODO group matching for non-grouped user
-            # 1 : dbscan algorithm + gps based movement vector alignment
-            # 2 : acceleration
-            
-            # temporal : manual grouping 
-            if len(self.non_member_id_set) is not 0:
-                can_match = True
-                for id in self.non_member_id_set:
-                    if len(self.user_dict[id].gps) == 0:
-                        can_match = False
-                
-                if can_match:
+            if len(self.prev_initial_match) != 0:
+                group_list = self.__group_match(self.prev_initial_match)
+                print("Group match result :", group_list)
+                # Create group based on a match result 
+                for group_members in group_list:
                     group = Group(list(self.non_member_id_set))
                     with self.group_dict_lock:
                         self.group_dict[group.id] = group
 
-                    for id in self.non_member_id_set:
+                    for id in group_members:
+                        self.non_member_id_set.remove(id)
                         if id == group.current_leader_id:
                             role = UserStatus.GROUP_LEADER
                         else:
@@ -71,8 +81,23 @@ class GroupPowerSaveServer(object):
                             self.user_dict[id].update_offset(self.user_dict[group.current_leader_id])
                         self.user_dict[id].reserve_status_change(role, group.id)
 
-                    self.non_member_id_set.clear()
+                self.prev_initial_match.clear()
+            
+            # Initial match
+            if len(self.non_member_id_set) != 0:
+                can_match = True
+                for id in self.non_member_id_set:
+                    if len(self.user_dict[id].gps) == 0:
+                        can_match = False
                 
+                if can_match:
+                    self.prev_initial_match = self.__initial_match(self.non_member_id_set)
+                    print("Group initial match result :", self.prev_initial_match)
+                    for group_members in self.prev_initial_match:
+                        for id in group_members:
+                            self.user_dict[id].request_acceleration()
+                            print("Requested acceleration to ", id)
+
             time.sleep(interval)
             
     async def __parse_json(self, request: web.Request, must_contains : list = []):    
@@ -178,9 +203,13 @@ class GroupPowerSaveServer(object):
                     if member != id:
                         self.user_dict[member].update_offset(user)
 
+        response_data = { "need_acceleration" : user.need_acceleration }
+
         # let client know about a new role
         if pending_status is not None:
+            response_data["status"] = pending_status.value
+            response_data["group_id"] = user.group_id
+
             print("User", id, "has changed to", pending_status)
-            return web.json_response({"status" : pending_status.value, "group_id" : user.group_id })
-  
-        return web.Response()
+        
+        return web.json_response(response_data)

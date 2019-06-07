@@ -17,9 +17,7 @@ class User(object):
         self._gps = []
         self._acceleration = []
         self._offset = None
-    def ping(self):
-        # reset ping timer for connection check
-        pass
+        self._need_acceleration = False
 
     def update_data_from_leader(self, leader):
         if self._offset is not None:
@@ -27,12 +25,20 @@ class User(object):
             self._gps.append(leader_data)
 
     def update_data(self, data):
-        # TODO : store latitude / longitude / accel data
         # Need lock here?
         if 'time' in data and 'latitude' in data and 'longitude' in data:
             self._gps.append([data['time'], data['latitude'], data['longitude']])
         elif 'acceleration' in data:
+            print("Got acceleration of", self._id)
+            self._need_acceleration = False
             self._acceleration = data['acceleration']
+    
+    def request_acceleration(self):
+        self._need_acceleration = True
+
+    @property
+    def need_acceleration(self):
+        return self._need_acceleration
 
     @property
     def gps(self):

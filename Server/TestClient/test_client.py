@@ -91,8 +91,12 @@ class RoleUpdateTest(DefaultTest):
         async with self.session.get(self.target_address + "ping", params={'id' : client.id}) as resp:
             if resp.content_type == 'application/json':
                 json = await resp.json()
-                client.status = UserStatus(json["status"])
-                client.group_id = json["group_id"]
+                if "status" in json:
+                    client.status = UserStatus(json["status"])
+                if "group_id" in json:
+                    client.group_id = json["group_id"]
+                if "need_acceleration" in json:
+                    print("Client need acceleration", json["need_acceleration"])
 
     async def ping_tick(self, ping_interval):
         while(True):
