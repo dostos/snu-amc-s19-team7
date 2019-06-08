@@ -13,7 +13,7 @@ if __name__ == '__main__':
     parser.add_argument('--test', 
     type=str, 
     choices=test_classes.keys(), 
-    default=RoleUpdateTest.__name__,
+    default=PositionUpdateTest.__name__,
     help='Name of the test function')
     parser.add_argument('--target_server', 
     type=str,
