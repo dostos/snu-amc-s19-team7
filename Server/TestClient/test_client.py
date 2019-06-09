@@ -15,8 +15,6 @@ from datetime import datetime
 sys.path.append("..")
 from GroupPowerSaveServer.user import UserStatus
 
-sys.stdout = open('file', 'w')
-
 # gps positions -> distance in meters
 def get_distance(pos1, pos2) :  
     R = 6378.137 # Radius of earth in KM
@@ -94,7 +92,11 @@ class Client(object):
         self.position_from_server = None
         self.group_id = None
         self.status = UserStatus.NON_GROUP_MEMBER
+        self.local_status = ClientStatus.WANDER
         self.gps_request_count = 0
+    
+    def tick(self):
+        pass
 
 class DefaultTest(object):
     def __init__(self, session, target_address, map_bound, bus_per_route, routes, num_client):
@@ -112,7 +114,6 @@ class DefaultTest(object):
             for i in range(bus_per_route):
                 self.buses.append(Bus(route, int(len(route) / bus_per_route * i) , 14))
         
-    
     async def register(self):
         for client in self.clients:
             resp = await self.session.post(self.target_address + "register", json={'id' : client.id})
@@ -158,7 +159,6 @@ class DefaultTest(object):
 
 class RoleUpdateTest(DefaultTest):
     async def __ping(self, client):
-        print("ping")
         # simulate random network fluctuation
         async with self.session.get(self.target_address + "ping", params={'id' : client.id}) as resp:
             if resp.content_type == 'application/json':
@@ -185,6 +185,9 @@ class PositionUpdateTest(RoleUpdateTest):
         for bus in self.buses:
             bus.tick()
 
+        for client in self.clients:
+            client.tick()
+
     async def __set_position(self, client : Client):
         if client.status == UserStatus.GROUP_LEADER:
             client.position[0] += 0.001
@@ -200,7 +203,6 @@ class PositionUpdateTest(RoleUpdateTest):
 
     async def gps_set_tick(self, status, interval):
         while(True):
-            print("gps_set_tick")
             if self.session.closed:
                 break
             for client in self.clients:
@@ -209,7 +211,6 @@ class PositionUpdateTest(RoleUpdateTest):
             await asyncio.sleep(interval)
 
     async def __get_position(self, client :Client):
-        print("__get_position")
         async with self.session.get(self.target_address + "user-data", params={'id' : client.id}) as resp:
             if resp.content_type == 'application/json':
                 json = await resp.json()
