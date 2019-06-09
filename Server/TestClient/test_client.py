@@ -213,8 +213,7 @@ class PositionUpdateTest(RoleUpdateTest):
                 json = await resp.json()
                 if "latitude" in json and "longitude" in json:
                     client.position_from_server = [json["latitude"], json["longitude"]]
-                    if client.status == UserStatus.GROUP_MEMBER:
-                        client.position = client.position_from_server
+                    client.position = client.position_from_server
                     
     async def gps_get_tick(self, interval):
         while(True):
@@ -243,7 +242,7 @@ async def execute(loop, test_type, clients, target_address, map_bound = None, bu
             # add all update functions here
             await asyncio.gather(
                 test.ping_tick(10), 
-                test.update_callback(callback, 0.5),
+                test.update_callback(callback, 1),
                 test.gps_set_tick(UserStatus.NON_GROUP_MEMBER, 4),
                 test.gps_set_tick(UserStatus.GROUP_LEADER, 1),
                 test.gps_get_tick(1), 

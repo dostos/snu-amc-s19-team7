@@ -177,7 +177,7 @@ class GroupPowerSaveServer(object):
                 print("Group match result :", group_list)
                 # Create group based on a match result 
                 for group_members in group_list:
-                    group = Group(list(self.non_member_id_set))
+                    group = Group(group_members)
                     with self.group_dict_lock:
                         self.group_dict[group.id] = group
 
@@ -318,7 +318,8 @@ class GroupPowerSaveServer(object):
 
                 for member in group.member_id_list:
                     if member != id:
-                        self.user_dict[member].update_offset(user)
+                        with self.user_dict_lock:
+                            self.user_dict[member].update_offset(user)
 
         response_data = { "need_acceleration" : user.need_acceleration }
 
