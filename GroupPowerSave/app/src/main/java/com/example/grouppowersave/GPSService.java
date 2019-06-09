@@ -39,7 +39,7 @@ public class GPSService extends Service implements SensorEventListener {
     //public GPSService() {super("GPSService");}
 
     public static double ACC_THRESHOLD = 2.0;
-    public static String url = "http://ec2-13-125-224-189.ap-northeast-2.compute.amazonaws.com:8080/register";
+    public static String url = "http://54.180.101.171:8080/";
     private SensorManager mSensorManager;
     LocationManager mLocationManager;
     Context mContext;
@@ -145,9 +145,10 @@ public class GPSService extends Service implements SensorEventListener {
     }
 
     public static void connectToServer() {
+        Log.e("ConnectToServer", uniqueUserID);
         final JSONObject jsonO = new JSONObject();
         try {
-            jsonO.put("register", "Dieser Wert hat keinen Sinn, aber ich schreib ihn mal auf deutsch.");
+            jsonO.put("id", uniqueUserID);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -160,8 +161,7 @@ public class GPSService extends Service implements SensorEventListener {
                 try {
 
                     String body = client.register(url, jsonS);
-                    Log.e("UniqueID (registration)", body);
-                    uniqueUserID = body;
+                    Log.e("Registration", body);
                 } catch (IOException ioe) {
                     ioe.printStackTrace();
                 }
@@ -382,9 +382,13 @@ public class GPSService extends Service implements SensorEventListener {
         //Should run every 5 seconds
         @Override
         public void run() {
+            boolean x = false;
             Log.e("Duty cycle", "Running");
             handler.postDelayed(this, 1000 * 5);
-            receiveGroupStatus();
+            x=!x;
+            if(x) {
+                receiveGroupStatus();
+            }
             if(groupStatus == 0){
                 getRealLocation();
                 providePosition();
