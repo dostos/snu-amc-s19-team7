@@ -194,7 +194,8 @@ class GroupPowerSaveServer(object):
             
             # Initial match
             if len(self.non_member_id_set) != 0:
-                non_member_list = list(self.non_member_id_set)
+                pass
+                """ non_member_list = list(self.non_member_id_set)
                 non_member_data = []
                 for id in non_member_list:
                     if len(self.user_dict[id].gps) >= 3:
@@ -210,7 +211,7 @@ class GroupPowerSaveServer(object):
                     for group_members in self.prev_initial_match:
                         for id in group_members:
                             self.user_dict[id].request_acceleration()
-                            print("Requested acceleration to ", id)
+                            print("Requested acceleration to ", id) """
 
             time.sleep(interval)
             
