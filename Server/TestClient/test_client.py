@@ -16,8 +16,6 @@ from datetime import datetime
 sys.path.append("..")
 from GroupPowerSaveServer.user import UserStatus
 
-sys.stdout = open('file', 'w')
-
 # gps positions -> distance in meters
 def get_distance(pos1, pos2) :  
     R = 6378.137 # Radius of earth in KM
