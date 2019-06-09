@@ -189,9 +189,6 @@ class PositionUpdateTest(RoleUpdateTest):
             client.tick()
 
     async def __set_position(self, client : Client):
-        if client.status == UserStatus.GROUP_LEADER:
-            client.position[0] += 0.001
-            client.position[1] += 0.001
         async with self.session.put(
             self.target_address + "user-data", 
             params={'id' : client.id}, 

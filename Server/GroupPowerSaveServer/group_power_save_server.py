@@ -143,7 +143,7 @@ class GroupPowerSaveServer(object):
         for nc in range(n_clusters_):
             group_member_mask = (labels == nc)
             group_members = candidate_list[group_member_mask]
-            pdist = tdist.pdist(group_members.transpose([0, 2, 1]),metic="sspd",type_d="spherical")
+            pdist = tdist.pdist(group_members.transpose([0, 2, 1]),metric="sspd",type_d="spherical")
             Z = fc.linkage(pdist, method="ward")
             sub_labels = sch.fcluster(Z, t, criterion=criterion) - 1
             unique_sub_labels = len(set(sub_labels))
@@ -171,7 +171,6 @@ class GroupPowerSaveServer(object):
         return candidate_list.copy()
 
     def __group_match_tick(self, interval: int):
-        
         while(True):
             if len(self.prev_initial_match) != 0:
                 group_list = self.__group_match(self.prev_initial_match)
@@ -195,13 +194,18 @@ class GroupPowerSaveServer(object):
             
             # Initial match
             if len(self.non_member_id_set) != 0:
-                can_match = True
-                for id in self.non_member_id_set:
-                    if len(self.user_dict[id].gps) == 0:
-                        can_match = False
+                non_member_list = list(self.non_member_id_set)
+                non_member_data = []
+                for id in non_member_list:
+                    if len(self.user_dict[id].gps) >= 3:
+                        non_member_data.append([ i[-2:] for i in self.user_dict[id].gps[-3:]])
                 
-                if can_match:
-                    self.prev_initial_match = self.__initial_match(self.non_member_id_set)
+                if len(non_member_data) != 0:
+                    group_indexes = self.__initial_match(np.array(non_member_data))
+                    for index_list in group_indexes:
+                        if len(index_list) > 1:
+                            self.prev_initial_match.append([non_member_list[i] for i in index_list])
+                    
                     print("Group initial match result :", self.prev_initial_match)
                     for group_members in self.prev_initial_match:
                         for id in group_members:
@@ -251,6 +255,8 @@ class GroupPowerSaveServer(object):
     async def __put__data_handler(self, request: web.Request) -> web.Response:
         id = str(request.rel_url.query['id'])
 
+        print("put data id", id)
+
         # id validation
         if id not in self.user_dict:
             return web.Response(status=422, text="Not valid id")
@@ -258,6 +264,7 @@ class GroupPowerSaveServer(object):
         succeess, result = await self.__parse_json(request, ["time"])
         if succeess:
             user : User = self.user_dict[id]
+            print("data ", result)
             user.update_data(result)
 
             if user.group_id is not None:
