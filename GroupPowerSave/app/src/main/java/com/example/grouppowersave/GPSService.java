@@ -1,11 +1,13 @@
 package com.example.grouppowersave;
 
+import android.Manifest;
 import android.app.AlarmManager;
 import android.app.IntentService;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -20,6 +22,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.SystemClock;
+import android.provider.Settings;
+import android.support.v4.app.ActivityCompat;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import java.io.IOException;
@@ -51,8 +56,9 @@ public class GPSService extends Service implements SensorEventListener {
     LocationListener locationListenerGPS = new LocationListener() {
         @Override
         public void onLocationChanged(android.location.Location location) {
-            if(location == null){
-                Log.e("locationupdate","location is null");}
+            if (location == null) {
+                Log.e("locationupdate", "location is null");
+            }
             currentLocation = location;
             double latitude = location.getLatitude();
             double longitude = location.getLongitude();
@@ -101,8 +107,8 @@ public class GPSService extends Service implements SensorEventListener {
         //Restart the service once it has been killed android
 
 
-        AlarmManager alarmService = (AlarmManager)getApplicationContext().getSystemService(Context.ALARM_SERVICE);
-        alarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() +100, restartServicePI);
+        AlarmManager alarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
+        alarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 100, restartServicePI);
 
     }
 
@@ -112,6 +118,8 @@ public class GPSService extends Service implements SensorEventListener {
         super.onCreate();
 
         //start a separate thread and start listening to your network object
+
+        uniqueUserID = Settings.Secure.getString(getBaseContext().getContentResolver(), Settings.Secure.ANDROID_ID);
 
         //INITIALISATION
         Log.e("GPSService", "started");
