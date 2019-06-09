@@ -6,6 +6,7 @@ import random
 import numpy as np
 import time
 import math
+import functools
 
 from enum import Enum, auto
 from functools import partial
@@ -14,6 +15,8 @@ from datetime import datetime
 
 sys.path.append("..")
 from GroupPowerSaveServer.user import UserStatus
+
+sys.stdout = open('file', 'w')
 
 # gps positions -> distance in meters
 def get_distance(pos1, pos2) :  
@@ -35,13 +38,14 @@ def interpolate(t, pos1, pos2):
     return np.add(np.multiply(pos1, 1 - t), np.multiply(pos2, t))
 
 class ClientStatus(Enum):
-    WANDER = auto()
+    WANDER = auto(),
     WAIT_BUS = auto(),
     ON_BUS = auto()
 
 class Bus(object):
-    def __init__(self, route, index, speed):
+    def __init__(self, route, route_index, index, speed):
         self.route = route
+        self.route_index = route_index
         self.index = index
         self.speed = speed
         self._t = 0
@@ -69,7 +73,7 @@ class Bus(object):
             self._stop_count -= 1
         else:
             self._t += self._dt
-
+            # arrived
             if self._t >= 1:
                 self.index = self.next_index
                 self._t = 0
@@ -86,17 +90,70 @@ class Client(object):
         Client.unique_id_count +=1
         return id
 
-    def __init__(self, position):
+    def __init__(self, position, speed, route, route_index):
         self.id = Client.get_unique_id()
-        self.position = position
         self.position_from_server = None
         self.group_id = None
         self.status = UserStatus.NON_GROUP_MEMBER
         self.local_status = ClientStatus.WANDER
         self.gps_request_count = 0
+        self.speed = speed
+        self.route = route
+        self.route_index = route_index
+
+        self._t = 0
+        self._dt = 1
+        self._current_position = position
+        self._next_position = position
+        self._stop_index = None
+        self._bus = None
+        self._bus_offset = [random.uniform(-0.0005, 0.0005), random.uniform(-0.0005, 0.0005)]
     
-    def tick(self):
-        pass
+    @property
+    def position(self):
+        if self.local_status is ClientStatus.ON_BUS:
+            return np.add(self._bus.position, self._bus_offset)
+        else:
+            return interpolate(self._t, self._current_position, self._next_position)
+
+    def tick(self, buses):
+        if self.local_status is ClientStatus.WANDER:
+            self._t += self._dt
+
+            # arrived
+            if self._t >= 1:
+                random_action = random.random()
+                if random_action < 0.9:
+                    self._current_position = self._next_position
+                    self._next_position = np.add(self._current_position, [random.uniform(-0.001, 0.001), random.uniform(-0.001, 0.001)])
+                else:
+                    closest_stop_index = None
+                    closest_stop_distance = sys.maxsize
+
+                    for i in range(len(self.route)):
+                        distance = get_distance(self._current_position, self.route[i])
+                        if distance < closest_stop_distance:
+                            closest_stop_distance = distance
+                            closest_stop_index = i
+
+                    self._next_position = self.route[closest_stop_index]
+                    self._stop_index = closest_stop_index
+                    self.local_status = ClientStatus.WAIT_BUS
+
+                self._t = 0
+                self._dt = self.speed / get_distance(self._current_position, self._next_position)
+        
+        elif self.local_status is ClientStatus.WAIT_BUS:
+            self._t += self._dt
+
+            if self._t >= 1:
+                self._t = 1
+
+                bus : Bus
+                for bus in buses:
+                    if bus.is_stop and bus.route_index == self.route_index and bus.index == self._stop_index:
+                        self.local_status = ClientStatus.ON_BUS
+                        self._bus = bus
 
 class DefaultTest(object):
     def __init__(self, session, target_address, map_bound, bus_per_route, routes, num_client):
@@ -107,12 +164,13 @@ class DefaultTest(object):
 
         self.clients = []
         for _ in range(num_client):
-            self.clients.append(Client([random.uniform(self.map_bound[0][0], self.map_bound[1][0]), random.uniform(self.map_bound[0][1], self.map_bound[1][1])]))
+            random_route_index = random.randint(0, len(self.routes) - 1)
+            self.clients.append(Client([random.uniform(self.map_bound[0][0], self.map_bound[1][0]), random.uniform(self.map_bound[0][1], self.map_bound[1][1])], 10, self.routes[random_route_index], random_route_index))
 
         self.buses = []
-        for route in routes:
+        for route_index in range(len(routes)):
             for i in range(bus_per_route):
-                self.buses.append(Bus(route, int(len(route) / bus_per_route * i) , 14))
+                self.buses.append(Bus(routes[route_index], route_index, int(len(routes[route_index]) / bus_per_route * i) , 30))
         
     async def register(self):
         for client in self.clients:
@@ -186,7 +244,7 @@ class PositionUpdateTest(RoleUpdateTest):
             bus.tick()
 
         for client in self.clients:
-            client.tick()
+            client.tick(self.buses)
 
     async def __set_position(self, client : Client):
         async with self.session.put(
@@ -213,7 +271,6 @@ class PositionUpdateTest(RoleUpdateTest):
                 json = await resp.json()
                 if "latitude" in json and "longitude" in json:
                     client.position_from_server = [json["latitude"], json["longitude"]]
-                    client.position = client.position_from_server
                     
     async def gps_get_tick(self, interval):
         while(True):
@@ -242,8 +299,8 @@ async def execute(loop, test_type, clients, target_address, map_bound = None, bu
             # add all update functions here
             await asyncio.gather(
                 test.ping_tick(10), 
-                test.update_callback(callback, 1),
-                test.gps_set_tick(UserStatus.NON_GROUP_MEMBER, 4),
-                test.gps_set_tick(UserStatus.GROUP_LEADER, 1),
-                test.gps_get_tick(1), 
+                test.update_callback(callback, 0.5),
+                test.gps_set_tick(UserStatus.NON_GROUP_MEMBER, 1),
+                test.gps_set_tick(UserStatus.GROUP_LEADER, 0.5),
+                test.gps_get_tick(0.5), 
                 loop=loop)
