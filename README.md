@@ -4,7 +4,9 @@ SNU Advanced Mobile Computing Team 7
 ## Usage
 ### Required Libraries
 Known good dependencies
-- Python 3.x
+- Python 3.7
+- `conda install Shapely`
+- `pip install python-geohash`
 - traj_dist(https://github.com/HyunjiEllenPak/traj-dist)
 
 ## Information Related to our Project.
