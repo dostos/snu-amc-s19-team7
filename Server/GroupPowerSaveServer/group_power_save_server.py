@@ -143,7 +143,7 @@ class GroupPowerSaveServer(object):
         for nc in range(n_clusters_):
             group_member_mask = (labels == nc)
             group_members = candidate_list[group_member_mask]
-            pdist = tdist.pdist(group_members.transpose([0, 2, 1]))
+            pdist = tdist.pdist(group_members.transpose([0, 2, 1]),metic="sspd",type_d="spherical")
             Z = fc.linkage(pdist, method="ward")
             sub_labels = sch.fcluster(Z, t, criterion=criterion) - 1
             unique_sub_labels = len(set(sub_labels))
