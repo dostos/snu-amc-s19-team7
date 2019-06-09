@@ -195,13 +195,14 @@ class GroupPowerSaveServer(object):
             
             # Initial match
             if len(self.non_member_id_set) != 0:
-                can_match = True
-                for id in self.non_member_id_set:
-                    if len(self.user_dict[id].gps) == 0:
-                        can_match = False
+                non_member_list = list(self.non_member_id_set)
+                non_member_data = []
+                for id in non_member_list:
+                    if len(self.user_dict[id].gps) >= 3:
+                        non_member_data.append(self.user_dict[id].gps[-3:,-2:])
                 
-                if can_match:
-                    self.prev_initial_match = self.__initial_match(self.non_member_id_set)
+                if len(non_member_data) != 0:
+                    self.prev_initial_match = self.__initial_match(non_member_data)
                     print("Group initial match result :", self.prev_initial_match)
                     for group_members in self.prev_initial_match:
                         for id in group_members:

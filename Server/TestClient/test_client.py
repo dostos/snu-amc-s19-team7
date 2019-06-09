@@ -86,7 +86,7 @@ class Client(object):
         Client.unique_id_count +=1
         return id
 
-    def __init__(self, position):
+    def __init__(self, position, bounds):
         self.id = Client.get_unique_id()
         self.position = position
         self.position_from_server = None
@@ -94,8 +94,16 @@ class Client(object):
         self.status = UserStatus.NON_GROUP_MEMBER
         self.local_status = ClientStatus.WANDER
         self.gps_request_count = 0
+
+        self._t = 0
+        self._dt = 0
     
     def tick(self):
+        if self.local_status is ClientStatus.WANDER:
+            self._t += self._dt
+
+            if self._t >= 1:
+            
         pass
 
 class DefaultTest(object):
