@@ -24,7 +24,7 @@ class GroupPowerSaveServer(object):
         # Worker threads setup
         self.threads = []
         self.threads.append(Thread(target=self.__duty_cycle_tick, args=[5]))
-        self.threads.append(Thread(target=self.__group_match_tick, args=[3]))
+        self.threads.append(Thread(target=self.__group_match_tick, args=[10]))
 
         self.user_dict_lock = Lock()
         self.user_dict = {}
@@ -175,12 +175,46 @@ class GroupPowerSaveServer(object):
             if len(self.prev_initial_match) != 0:
                 group_list = self.__group_match(self.prev_initial_match)
                 print("Group match result :", group_list)
+
+                group_leader_id_set = set()
+                with self.group_dict_lock:
+                    for group in self.group_dict.values():
+                        group_leader_id_set.add(group.current_leader_id)
                 # Create group based on a match result 
                 for group_members in group_list:
-                    group = Group(group_members)
-                    with self.group_dict_lock:
-                        self.group_dict[group.id] = group
-
+                    # Find existing groups in a matched group
+                    group_leader_indexes = []
+                    for id in group_members:
+                        if id in group_leader_id_set:
+                            group_leader_indexes.append(id)
+                    
+                    for id in group_leader_indexes:
+                        group_members.remove(id)
+                    
+                    if len(group_leader_indexes) == 0:
+                        group = Group(group_members)
+                        with self.group_dict_lock:
+                            self.group_dict[group.id] = group
+                    elif len(group_leader_indexes) == 1:
+                        with self.group_dict_lock:
+                            group_id = self.user_dict[group_leader_indexes[0]].group_id
+                            group = self.group_dict[group_id]
+                    # merge groups
+                    else:
+                        with self.group_dict_lock:
+                            main_group_id = self.user_dict[group_leader_indexes[0]].group_id
+                            main_group = self.group_dict[main_group_id]
+                            print("Group merged main group : ",main_group_id)
+                            # Migrate group members to main group
+                            for i in range(1, len(group_leader_indexes)):
+                                group_id = self.user_dict[group_leader_indexes[i]].group_id
+                                group = self.group_dict[group_id]
+                                print("Group merged group : ",group_id)
+                                for id in group.member_id_list:
+                                    self.user_dict[id].reserve_status_change(UserStatus.GROUP_MEMBER, main_group.id)
+                                    self.user_dict[id].update_offset(self.user_dict[main_group.current_leader_id])
+                                self.group_dict.pop(group_id)
+                            
                     for id in group_members:
                         self.non_member_id_set.remove(id)
                         if id == group.current_leader_id:
@@ -194,14 +228,20 @@ class GroupPowerSaveServer(object):
             
             # Initial match
             if len(self.non_member_id_set) != 0:
-                pass
-                """ non_member_list = list(self.non_member_id_set)
+                non_member_list = list(self.non_member_id_set)
                 non_member_data = []
                 for id in non_member_list:
                     if len(self.user_dict[id].gps) >= 3:
                         non_member_data.append([ i[-2:] for i in self.user_dict[id].gps[-3:]])
                 
                 if len(non_member_data) != 0:
+                    # Add existing groups
+                    with self.group_dict_lock:
+                        for group in self.group_dict.values():
+                            leader_id = group.current_leader_id
+                            non_member_data.append([ i[-2:] for i in self.user_dict[leader_id].gps[-3:]])
+                            non_member_list.append(leader_id)
+
                     group_indexes = self.__initial_match(np.array(non_member_data))
                     for index_list in group_indexes:
                         if len(index_list) > 1:
@@ -211,7 +251,7 @@ class GroupPowerSaveServer(object):
                     for group_members in self.prev_initial_match:
                         for id in group_members:
                             self.user_dict[id].request_acceleration()
-                            print("Requested acceleration to ", id) """
+                            print("Requested acceleration to ", id)
 
             time.sleep(interval)
             
@@ -256,7 +296,7 @@ class GroupPowerSaveServer(object):
     async def __put__data_handler(self, request: web.Request) -> web.Response:
         id = str(request.rel_url.query['id'])
 
-        print("put data id", id)
+        #print("put data id", id)
 
         # id validation
         if id not in self.user_dict:
@@ -265,10 +305,10 @@ class GroupPowerSaveServer(object):
         succeess, result = await self.__parse_json(request, ["time"])
         if succeess:
             user : User = self.user_dict[id]
-            print("data ", result)
+            #print("data ", result)
             user.update_data(result)
 
-            if user.group_id is not None:
+            if user.group_id is not None and user.group_id in self.group_dict:
                 group : Group = self.group_dict[user.group_id]
                 # distribute position to users
                 if group.current_leader_id == id:
