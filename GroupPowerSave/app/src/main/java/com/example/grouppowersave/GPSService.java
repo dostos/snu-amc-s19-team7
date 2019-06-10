@@ -57,6 +57,7 @@ public class GPSService extends Service implements SensorEventListener {
     public double[][] accData_rdy;
     int accCounter = 0;
     int count = 0;
+    int count2 = 0;
     static Location currentLocation;
     static String uniqueUserID = "IDnotSet";
     static int groupStatus = 0;
@@ -429,6 +430,7 @@ public class GPSService extends Service implements SensorEventListener {
 
             handler.postDelayed(this, t-curTime);
             count++;
+            count2++;
             if(count==10) {
                 count=0;
                 receiveGroupStatus();
@@ -442,6 +444,14 @@ public class GPSService extends Service implements SensorEventListener {
             }else if(count%5==0){
                 receivePosition();
             //    getMockLocation();
+            }
+
+            if(count2==30){
+                if(groupStatus==1){
+                    getRealLocation();
+                    providePosition();
+                }
+                count2=0;
             }
 
         }
