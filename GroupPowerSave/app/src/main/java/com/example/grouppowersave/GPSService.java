@@ -57,9 +57,9 @@ public class GPSService extends Service implements SensorEventListener {
     public double[][] accData_rdy;
     int accCounter = 0;
     int count = 0;
-    static Location currentLocation;
+    static Location currentLocation  = new Location(LocationManager.GPS_PROVIDER); //initialized with empty location to prevent null pointer exceptions
     static String uniqueUserID = "IDnotSet";
-    static int groupStatus = 0;
+    static int groupStatus = 1;
     LocationListener locationListenerGPS = new LocationListener() {
         @Override
         public void onLocationChanged(android.location.Location location) {
@@ -134,7 +134,7 @@ public class GPSService extends Service implements SensorEventListener {
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         //have to change position of registerListener when we want to use accelerometer.
         mContext = this;
-        GPSService=this;
+        getRealLocation();
         connectToServer();
         handler = new Handler();
         runner = new Runner();
@@ -176,11 +176,13 @@ public class GPSService extends Service implements SensorEventListener {
         }.execute();
     }
     private void getRealLocation(){
+
+        Log.e("RealLocation","changed to RealLocation");
         mLocationManager = (LocationManager) getApplicationContext().getSystemService(Context.LOCATION_SERVICE);
         mLocationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
         try {
             mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
-                    100,
+                    5000, //location updated time in milliseconds
                     0, locationListenerGPS);
 
         } catch (SecurityException e) {
@@ -188,13 +190,14 @@ public class GPSService extends Service implements SensorEventListener {
         }
     }
     private void getMockLocation() {
-        if (mLocationManager.getProvider(LocationManager.GPS_PROVIDER) != null) {
+        Log.e("MockLocation","changed to Mocklocation");
+        /*if (mLocationManager.getProvider(LocationManager.GPS_PROVIDER) != null && mLocationManager.getProvider(LocationManager.GPS_PROVIDER).getName() != "gps") {
             mLocationManager.removeTestProvider(LocationManager.GPS_PROVIDER);
         }
-        Log.e("locProvider", mLocationManager.getAllProviders().toString());
+        Log.e("locProvider", mLocationManager.getAllProviders().toString()); */ //enable this ccde block if there are any other location providers except the regular ones
         mLocationManager.addTestProvider
                 (
-                        LocationManager.GPS_PROVIDER,
+                        "mock",
                         "requiresNetwork" == "",
                         "requiresSatellite" == "",
                         "requiresCell" == "",
@@ -207,7 +210,7 @@ public class GPSService extends Service implements SensorEventListener {
                         android.location.Criteria.ACCURACY_FINE
                 );
 
-        Location newLocation = new Location(LocationManager.GPS_PROVIDER);
+        Location newLocation = new Location("mock");
 
         newLocation.setLatitude(currentLocation.getLatitude());
         newLocation.setLongitude(currentLocation.getLongitude());
@@ -219,13 +222,13 @@ public class GPSService extends Service implements SensorEventListener {
 
         mLocationManager.setTestProviderEnabled
                 (
-                        LocationManager.GPS_PROVIDER,
+                        "mock",
                         true
                 );
 
         mLocationManager.setTestProviderStatus
                 (
-                        LocationManager.GPS_PROVIDER,
+                        "mock",
                         LocationProvider.AVAILABLE,
                         null,
                         System.currentTimeMillis()
@@ -233,7 +236,7 @@ public class GPSService extends Service implements SensorEventListener {
 
         mLocationManager.setTestProviderLocation
                 (
-                        LocationManager.GPS_PROVIDER,
+                        "mock",
                         newLocation
                 );
     }
@@ -419,29 +422,30 @@ public class GPSService extends Service implements SensorEventListener {
         //Should run every 5 seconds
         @Override
         public void run() {
+            int cycle_speed = 5; //cycle speed in seconds
             Log.e("Duty cycle", "Running");
-
             long curTime = System.currentTimeMillis();
-            long t = (curTime/1000+1)*1000;
-            Log.d("time", t-curTime+"");
+            long t = (curTime/1000+cycle_speed)*1000;
+          //  Log.d("time", t-curTime+"");  //time since last cycle
             Log.d("currentState", groupStatus+"");
             Log.d("count", count+"");
 
             handler.postDelayed(this, t-curTime);
             count++;
-            if(count==10) {
+            if(count==10) {         //updated group status every ten cycles
                 count=0;
                 receiveGroupStatus();
             }
-            if(groupStatus == 2){
-                getRealLocation();
+            //temporary code, needs to be adjusted to actual groupStatus
+            if(groupStatus == 2){ //groupLeader
                 providePosition();
-            }else if(groupStatus == 0 && count%2==0){
-                getRealLocation();
+            }else if(groupStatus == 0 ){ //unmatched
+
                 providePosition();
-            }else if(count%5==0){
+             }else if (groupStatus == 1){ //member
+                getMockLocation();
+                Log.e("provider",mLocationManager.getAllProviders().toString());
                 receivePosition();
-            //    getMockLocation();
             }
 
         }
