@@ -317,12 +317,7 @@ class GroupPowerSaveServer(object):
 
         succeess, result = await self.__parse_json(request, [])
         if succeess:
-<<<<<<< HEAD
             user:User = self.user_dict[id]
-            #print("data ", result)
-=======
-            user : User = self.user_dict[id]
->>>>>>> 916b13cb8d85704a8e07cf1a33017f41763d86f0
             user.update_data(result)
 
             if user.group_id is not None and user.group_id in self.group_dict:
