@@ -75,9 +75,10 @@ public class HttpClient {
         return con.getResponseMessage();
     }
 
-    public void providePosition (String putUrl, String data) throws IOException{
+    public String providePosition (String putUrl, String data) throws IOException{
 
             URL url = new URL(putUrl);
+            String readLine = null;
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             con.setRequestMethod("PUT");
             con.setDoOutput(true);
@@ -86,6 +87,18 @@ public class HttpClient {
 
             this.sendData(con, data);
             Log.d("Location sent response:", ""+con.getResponseCode());
+            if(con.getResponseCode()==HttpURLConnection.HTTP_OK){
+                BufferedReader in = new BufferedReader(
+                        new InputStreamReader(con.getInputStream()));
+                StringBuffer response = new StringBuffer();
+                while ((readLine = in .readLine()) != null) {
+                    response.append(readLine);
+                } in .close();
+
+                return response.toString();
+            }
+
+            return "0";
     }
 
 

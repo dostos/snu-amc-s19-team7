@@ -315,7 +315,7 @@ public class GPSService extends Service implements SensorEventListener {
             protected String doInBackground(Void... voids) {
                 try {
                     Log.e("ProvideLocationToServer", jsonS);
-                    client.providePosition(url, jsonS);
+                    String response = client.providePosition(url, jsonS);
                 } catch (IOException ioe) {
                     ioe.printStackTrace();
                 }
