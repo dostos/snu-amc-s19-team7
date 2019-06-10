@@ -299,6 +299,7 @@ async def execute(loop, test_type, clients, target_address, map_bound = None, bu
                 test.ping_tick(10), 
                 test.update_callback(callback, 0.5),
                 test.gps_set_tick(UserStatus.NON_GROUP_MEMBER, 1),
+                test.gps_set_tick(UserStatus.GROUP_MEMBER, 5),
                 test.gps_set_tick(UserStatus.GROUP_LEADER, 0.5),
                 test.gps_get_tick(0.5), 
                 loop=loop)

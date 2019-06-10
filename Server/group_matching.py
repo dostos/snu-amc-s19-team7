@@ -2,6 +2,7 @@ import csv
 import sys
 import numpy as np
 from datetime import datetime
+from scipy import spatial
 
 import plotly
 import plotly.graph_objs as graph_objs
@@ -86,7 +87,7 @@ def thresholding_algo(y, lag, threshold, influence):
                 avgFilter = np.asarray(avgFilter),
                 stdFilter = np.asarray(stdFilter))
 
-def plot_data(path):
+def get_data_peak(path):
     data = read_csv(path, 3000)
 
     magnitude_data = data[:,3]
@@ -102,15 +103,44 @@ def plot_data(path):
         if result["signals"][i] != 0:
             peak_data.append([data[:,0][i], 1])
     peak_data = np.array(peak_data)
-    #peak = extract_peak(data)
 
+    return data, peak_data
+
+def is_similar(peak0, peak1, threshold_time, thresold_peak_count):
+    def nearest_neighbour(points_a, points_b):
+        tree = spatial.cKDTree(points_b)
+        return tree.query(points_a, distance_upper_bound=threshold_time)
+    
+    def datetime_to_ms(data):
+        result = np.zeros((len(data), 1))
+        for i in range(len(data)):
+            result[i][0] = data[i][0].timestamp()
+        return result
+
+    peak0_ms = datetime_to_ms(peak0)
+    peak1_ms = datetime_to_ms(peak1)
+
+    nn = nearest_neighbour(peak0_ms, peak1_ms)
+    thresholded_nn = []
+
+    for i in range(len(peak0)):
+        if nn[1][i] != len(peak1):
+            thresholded_nn.append([peak0[i][0], peak1[nn[1][i]][0]])
+
+    return np.array(thresholded_nn)
+
+def plot_data(data, peak_data, selected_peak):
     data = [graph_objs.Scatter(x=data[:,0],y=data[:,3],name="magnitude"),
-            graph_objs.Scatter(x=peak_data[:,0],y=peak_data[:,1],mode='markers',name="Peak"),
-            graph_objs.Scatter(x=data[:,0],y=(result["avgFilter"] - threshold * result["stdFilter"]),name="Lower bound"),
-            graph_objs.Scatter(x=data[:,0],y=(result["avgFilter"] + threshold * result["stdFilter"]),name="Upper bound")]
-            
-
+            graph_objs.Scatter(x=peak_data[:,0],y=np.zeros_like(peak_data[:,1]),mode='markers',name="Peak"),
+            graph_objs.Scatter(x=selected_peak,y=np.zeros_like(selected_peak),mode='markers',name="Selected Peak")]
+        
     plotly.offline.plot(data, show_link=True)
 
-plot_data(iphone_subway_data)
-plot_data(ipad_subway_data)
+data0, peak0 = get_data_peak(iphone_subway_data)
+data1, peak1 = get_data_peak(ipad_subway_data)
+
+similar_peak_times = is_similar(peak0, peak1, 0.1, 3)
+plot_data(data0, peak0, similar_peak_times[:,0])
+plot_data(data1, peak1, similar_peak_times[:,1])
+
+

@@ -57,8 +57,8 @@ public class GPSService extends Service implements SensorEventListener {
     public double[][] accData_rdy;
     int accCounter = 0;
     int count = 0;
-    static Location currentLocation  = new Location(LocationManager.GPS_PROVIDER); //initialized with empty location to prevent null pointer exceptions
-    static String uniqueUserID = "IDnotSet";
+    static Location currentLocation  = new Location(LocationManager.GPS_PROVIDER); //initialized with empty location to prevent null pointer exceptions    int count2 = 0;
+    int change=0;    static String uniqueUserID = "IDnotSet";
     static int groupStatus = 1;
     LocationListener locationListenerGPS = new LocationListener() {
         @Override
@@ -190,14 +190,16 @@ public class GPSService extends Service implements SensorEventListener {
         }
     }
     private void getMockLocation() {
+        
         Log.e("MockLocation","changed to Mocklocation");
         /*if (mLocationManager.getProvider(LocationManager.GPS_PROVIDER) != null && mLocationManager.getProvider(LocationManager.GPS_PROVIDER).getName() != "gps") {
             mLocationManager.removeTestProvider(LocationManager.GPS_PROVIDER);
         }
+       
         Log.e("locProvider", mLocationManager.getAllProviders().toString()); */ //enable this ccde block if there are any other location providers except the regular ones
         mLocationManager.addTestProvider
                 (
-                        "mock",
+                        
                         "requiresNetwork" == "",
                         "requiresSatellite" == "",
                         "requiresCell" == "",
@@ -210,7 +212,7 @@ public class GPSService extends Service implements SensorEventListener {
                         android.location.Criteria.ACCURACY_FINE
                 );
 
-        Location newLocation = new Location("mock");
+     
 
         newLocation.setLatitude(currentLocation.getLatitude());
         newLocation.setLongitude(currentLocation.getLongitude());
@@ -222,13 +224,13 @@ public class GPSService extends Service implements SensorEventListener {
 
         mLocationManager.setTestProviderEnabled
                 (
-                        "mock",
+
                         true
                 );
 
         mLocationManager.setTestProviderStatus
                 (
-                        "mock",
+
                         LocationProvider.AVAILABLE,
                         null,
                         System.currentTimeMillis()
@@ -236,7 +238,7 @@ public class GPSService extends Service implements SensorEventListener {
 
         mLocationManager.setTestProviderLocation
                 (
-                        "mock",
+
                         newLocation
                 );
     }
@@ -352,8 +354,13 @@ public class GPSService extends Service implements SensorEventListener {
                     Log.e("location update",pos);
 
                     JSONObject object = new JSONObject(pos);
-                    currentLocation.setLatitude(object.getDouble("latitude"));
-                    currentLocation.setLongitude(object.getDouble("longitude"));
+
+                    if(object.has("latitude")) {
+                        Location location = new Location("");
+                        location.setLongitude(object.getDouble("latitude"));
+                        location.setLongitude(object.getDouble("longitude"));
+                        currentLocation=location;
+                    }
 
                 } catch (IOException ioe) {
                     ioe.printStackTrace();
@@ -425,27 +432,32 @@ public class GPSService extends Service implements SensorEventListener {
             int cycle_speed = 5; //cycle speed in seconds
             Log.e("Duty cycle", "Running");
             long curTime = System.currentTimeMillis();
-            long t = (curTime/1000+cycle_speed)*1000;
+      long t = (curTime/1000+cycle_speed)*1000;
           //  Log.d("time", t-curTime+"");  //time since last cycle
             Log.d("currentState", groupStatus+"");
             Log.d("count", count+"");
-
             handler.postDelayed(this, t-curTime);
             count++;
-            if(count==10) {         //updated group status every ten cycles
-                count=0;
+ 			count2++;
+            change++;                count=0;
                 receiveGroupStatus();
             }
-            //temporary code, needs to be adjusted to actual groupStatus
-            if(groupStatus == 2){ //groupLeader
-                providePosition();
+            if(groupStatus == 2){ //groupLeader                providePosition();
+
             }else if(groupStatus == 0 ){ //unmatched
 
                 providePosition();
-             }else if (groupStatus == 1){ //member
-                getMockLocation();
-                Log.e("provider",mLocationManager.getAllProviders().toString());
-                receivePosition();
+
+ }else if (groupStatus == 1){ //member
+                getMockLocation();                receivePosition();
+            }
+
+            if(count2==30){
+                if(groupStatus==1){
+                    getRealLocation();
+                    providePosition();
+                }
+                count2=0;
             }
 
         }
