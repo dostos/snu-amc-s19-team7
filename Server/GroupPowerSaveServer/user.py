@@ -27,11 +27,10 @@ class User(object):
     def update_data(self, data):
         # Need lock here?
         if 'time' in data and 'magnitude' in data:
-            print("Got acceleration of", self._id)
-            print("Got acceleration of time ", data['time'])
-            print("Got acceleration of magnitude ", data['magnitude'])
             self._need_acceleration = False
-            self._acceleration = data['acceleration']
+            self._acceleration = [data['time'], data['magnitude']]
+            print("Got acceleration of", self._id)
+            print("Got acceleration", self._acceleration)
         elif 'time' in data and 'latitude' in data and 'longitude' in data:
             self._gps.append([data['time'], data['latitude'], data['longitude']])
     

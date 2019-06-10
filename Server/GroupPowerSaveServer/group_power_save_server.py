@@ -296,16 +296,13 @@ class GroupPowerSaveServer(object):
     async def __put__data_handler(self, request: web.Request) -> web.Response:
         id = str(request.rel_url.query['id'])
 
-        #print("put data id", id)
-
         # id validation
         if id not in self.user_dict:
             return web.Response(status=422, text="Not valid id")
 
-        succeess, result = await self.__parse_json(request, ["time"])
+        succeess, result = await self.__parse_json(request, [])
         if succeess:
             user : User = self.user_dict[id]
-            #print("data ", result)
             user.update_data(result)
 
             if user.group_id is not None and user.group_id in self.group_dict:
