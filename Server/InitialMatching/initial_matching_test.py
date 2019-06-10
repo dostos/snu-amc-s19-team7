@@ -10,7 +10,7 @@ import hdbscan
 import traj_dist.distance as tdist
 
 
-def __initial_match(candidate_list: (np.ndarray, np.generic), min_pts=2, t=10, criterion='maxclust'):
+def __initial_match(candidate_list: (np.ndarray, np.generic), min_pts=2, t=50, criterion='distance'):
     # TODO group matching for non-grouped user
     # 1 : dbscan algorithm + gps based movement vector alignment -> clear!
     # 2 : acceleration -> let's discuss
@@ -87,7 +87,7 @@ def __initial_match(candidate_list: (np.ndarray, np.generic), min_pts=2, t=10, c
     # 'haversine' do clustering using distance transformed from (lat, long)
     clusterer = hdbscan.HDBSCAN(min_cluster_size=min_pts, min_samples=2, metric='haversine')
     labels = clusterer.fit_predict(rads)
-    print('Before refinement, labels are ', labels)
+    print('Before trajectory clustering, labels are ', labels)
     n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
     groups = []
     for ulb in range(n_clusters_):
@@ -101,7 +101,7 @@ def __initial_match(candidate_list: (np.ndarray, np.generic), min_pts=2, t=10, c
     for nc in range(n_clusters_):
         group_member_mask = (labels == nc)
         group_members = candidate_list[group_member_mask]
-        pdist = tdist.pdist(group_members.transpose([0, 2, 1]))
+        pdist = tdist.pdist(group_members.transpose([0, 2, 1]), metric="sspd",type_d="spherical")
         Z = fc.linkage(pdist, method="ward")
         sub_labels = sch.fcluster(Z, t, criterion=criterion) - 1
         unique_sub_labels = len(set(sub_labels))
@@ -110,9 +110,14 @@ def __initial_match(candidate_list: (np.ndarray, np.generic), min_pts=2, t=10, c
         for ad in range(unique_sub_labels - 1):
             groups.append([])
         member_indices = list(compress(range(len(group_member_mask)), group_member_mask))
-        for sb in range(1, unique_sub_labels):
+        for sb in range(unique_sub_labels):
             sub_group_mask = (sub_labels == sb)
             sub_member_indices = list(compress(range(len(sub_group_mask)), sub_group_mask))
+            #Noise case
+            if len(sub_member_indices) == 1:
+                groups[nc].remove(member_indices[sub_member_indices[0]])
+                labels[member_indices[sub_member_indices[0]]] = -1
+                continue
             for m in range(len(sub_member_indices)):
                 # remove from wrong group
                 groups[nc].remove(member_indices[sub_member_indices[m]])
@@ -120,13 +125,13 @@ def __initial_match(candidate_list: (np.ndarray, np.generic), min_pts=2, t=10, c
                 groups[total_n_clusters].append(member_indices[sub_member_indices[m]])
                 labels[member_indices[sub_member_indices[m]]] = total_n_clusters
             total_n_clusters += 1
-    print('After refinement, labels are ', labels)
+    print('After trajectory clustering, labels are ', labels)
     return groups.copy()
 if __name__=="__main__":
     npy_path = 'D:/python/clustering-mobilecomputing/dbscan/DBSCAN-test/snu-amc-s19-team7/Server/InitialMatching/traj_streams.npy'
     gen_mode = False
-    num_of_data = 6
-    num_time_steps = 5
+    num_of_data = 5
+    num_time_steps = 3
     # Data generation
     if gen_mode == True:#-> data_generation mode
         map_path = 'D:/python/clustering-mobilecomputing/dbscan/snu_map.png'
@@ -146,6 +151,11 @@ if __name__=="__main__":
         # X = [data_track[i][num_time_steps-1] for i in range(num_of_data)]
         streamlines = StandardScaler().fit_transform(streamlines)#평균0,분산1이 되도록 데이터 전처리.
         np.save(npy_path, streamlines)
-    streamlines = np.load(npy_path)
+    # streamlines = np.load(npy_path)
+    streamlines = np.array([[[37.459789,126.956361],[37.460028,126.956567],[37.460125,126.956770]],\
+                   [[37.459587,126.957122],[37.459902,126.957090],[37.460128,126.956932]],
+                   [[37.459839,126.957106],[37.459990,126.957058],[37.460166,126.956932]],
+                   [[37.459638,126.956662],[37.459877,126.956773],[37.460103,126.956827]],
+                   [[37.461008,126.956382],[37.460892,126.956498],[37.460587,126.956702]]])
     streamlines = streamlines.reshape([num_of_data,num_time_steps,2])
     __initial_match(streamlines)
