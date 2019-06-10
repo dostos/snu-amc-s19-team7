@@ -52,7 +52,7 @@ class GroupPowerSaveServer(object):
 
             time.sleep(interval)
 
-    def __initial_match(self, candidate_list:(np.ndarray, np.generic),min_pts=2, t=10, criterion='maxclust'):
+    def __initial_match(candidate_list: (np.ndarray, np.generic), min_pts=2, t=50, criterion='distance'):
         # TODO group matching for non-grouped user
         # 1 : dbscan algorithm + gps based movement vector alignment -> clear!
         # 2 : acceleration -> let's discuss
@@ -115,21 +115,21 @@ class GroupPowerSaveServer(object):
         Returns
         ----------
         groups : list of shape (n_clusters, n_members)
-        
+
         Examples
         ----------
         >>> candidate_list = np.array([,...,], shape=[5,3,2]) -> labels of candidate_list = [0,1,0,1,0]
         >>> groups = [[0,2,4],[1,3]]
         """
-        assert isinstance(candidate_list,(np.ndarray, np.generic))
+        assert isinstance(candidate_list, (np.ndarray, np.generic))
         num_of_data, num_time_steps, _ = candidate_list.shape
-        X = np.array([candidate_list[i,num_time_steps - 1, :] for i in range(num_of_data)])
+        X = np.array([candidate_list[i, num_time_steps - 1, :] for i in range(num_of_data)])
         rads = np.radians(X)  # [N,2]
         # Clustering with gps-data of 1-time step.
         # 'haversine' do clustering using distance transformed from (lat, long)
         clusterer = hdbscan.HDBSCAN(min_cluster_size=min_pts, min_samples=2, metric='haversine')
         labels = clusterer.fit_predict(rads)
-        print('Before refinement, labels are ', labels)
+        print('Before trajectory clustering, labels are ', labels)
         n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
         groups = []
         for ulb in range(n_clusters_):
@@ -143,7 +143,7 @@ class GroupPowerSaveServer(object):
         for nc in range(n_clusters_):
             group_member_mask = (labels == nc)
             group_members = candidate_list[group_member_mask]
-            pdist = tdist.pdist(group_members.transpose([0, 2, 1]),metric="sspd",type_d="spherical")
+            pdist = tdist.pdist(group_members.transpose([0, 2, 1]), metric="sspd", type_d="spherical")
             Z = fc.linkage(pdist, method="ward")
             sub_labels = sch.fcluster(Z, t, criterion=criterion) - 1
             unique_sub_labels = len(set(sub_labels))
@@ -152,9 +152,14 @@ class GroupPowerSaveServer(object):
             for ad in range(unique_sub_labels - 1):
                 groups.append([])
             member_indices = list(compress(range(len(group_member_mask)), group_member_mask))
-            for sb in range(1, unique_sub_labels):
+            for sb in range(unique_sub_labels):
                 sub_group_mask = (sub_labels == sb)
                 sub_member_indices = list(compress(range(len(sub_group_mask)), sub_group_mask))
+                # Noise case
+                if len(sub_member_indices) == 1:
+                    groups[nc].remove(member_indices[sub_member_indices[0]])
+                    labels[member_indices[sub_member_indices[0]]] = -1
+                    continue
                 for m in range(len(sub_member_indices)):
                     # remove from wrong group
                     groups[nc].remove(member_indices[sub_member_indices[m]])
@@ -162,7 +167,7 @@ class GroupPowerSaveServer(object):
                     groups[total_n_clusters].append(member_indices[sub_member_indices[m]])
                     labels[member_indices[sub_member_indices[m]]] = total_n_clusters
                 total_n_clusters += 1
-        print('After refinement, labels are ', labels)
+        print('After trajectory clustering, labels are ', labels)
         return groups.copy()
 
     def __group_match(self, candidate_list: list) -> list:
@@ -304,7 +309,7 @@ class GroupPowerSaveServer(object):
 
         succeess, result = await self.__parse_json(request, ["time"])
         if succeess:
-            user : User = self.user_dict[id]
+            user:User = self.user_dict[id]
             #print("data ", result)
             user.update_data(result)
 
