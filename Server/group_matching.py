@@ -57,18 +57,60 @@ def extract_peak(data, threshold = 1.2):
 
     return np.array(peak_list)
 
+
+
+def thresholding_algo(y, lag, threshold, influence):
+    signals = np.zeros(len(y))
+    filteredY = np.array(y)
+    avgFilter = [0]*len(y)
+    stdFilter = [0]*len(y)
+    avgFilter[lag - 1] = np.mean(y[0:lag])
+    stdFilter[lag - 1] = np.std(y[0:lag])
+    for i in range(lag, len(y) - 1):
+        if abs(y[i] - avgFilter[i-1]) > threshold * stdFilter [i-1]:
+            if y[i] > avgFilter[i-1]:
+                signals[i] = 1
+            else:
+                signals[i] = -1
+
+            filteredY[i] = influence * y[i] + (1 - influence) * filteredY[i-1]
+            avgFilter[i] = np.mean(filteredY[(i-lag):i])
+            stdFilter[i] = np.std(filteredY[(i-lag):i])
+        else:
+            signals[i] = 0
+            filteredY[i] = y[i]
+            avgFilter[i] = np.mean(filteredY[(i-lag):i])
+            stdFilter[i] = np.std(filteredY[(i-lag):i])
+
+    return dict(signals = np.asarray(signals),
+                avgFilter = np.asarray(avgFilter),
+                stdFilter = np.asarray(stdFilter))
+
 def plot_data(path):
-    data = read_csv(path, 30)
+    data = read_csv(path, 3000)
 
-    peak = extract_peak(data)
+    magnitude_data = data[:,3]
 
-    data = [graph_objs.Scatter(x=data[:,0],y=data[:,1],name="x"),
-            graph_objs.Scatter(x=data[:,0],y=data[:,2],name="y"),
-            graph_objs.Scatter(x=data[:,0],y=data[:,3],name="z"),
-            graph_objs.Scatter(x=peak[:,0],y=peak[:,1],mode='markers',name="Peak")]
+    lag = 50
+    threshold = 4
+    influence = 0.1
+
+    result = thresholding_algo(magnitude_data, lag, threshold, influence)
+
+    peak_data = []
+    for i in range(len(result["signals"])):
+        if result["signals"][i] != 0:
+            peak_data.append([data[:,0][i], 1])
+    peak_data = np.array(peak_data)
+    #peak = extract_peak(data)
+
+    data = [graph_objs.Scatter(x=data[:,0],y=data[:,3],name="magnitude"),
+            graph_objs.Scatter(x=peak_data[:,0],y=peak_data[:,1],mode='markers',name="Peak"),
+            graph_objs.Scatter(x=data[:,0],y=(result["avgFilter"] - threshold * result["stdFilter"]),name="Lower bound"),
+            graph_objs.Scatter(x=data[:,0],y=(result["avgFilter"] + threshold * result["stdFilter"]),name="Upper bound")]
             
 
-    plotly.offline.plot(data,show_link=True,)
+    plotly.offline.plot(data, show_link=True)
 
-plot_data(ipad_subway_data)
 plot_data(iphone_subway_data)
+plot_data(ipad_subway_data)
