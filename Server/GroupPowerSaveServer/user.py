@@ -26,12 +26,13 @@ class User(object):
 
     def update_data(self, data):
         # Need lock here?
-        if 'time' in data and 'latitude' in data and 'longitude' in data:
-            self._gps.append([data['time'], data['latitude'], data['longitude']])
-        elif 'acceleration' in data:
+        if 'acceleration' in data:
             print("Got acceleration of", self._id)
+            print("Got acceleration of", data['acceleration'])
             self._need_acceleration = False
             self._acceleration = data['acceleration']
+        elif 'time' in data and 'latitude' in data and 'longitude' in data:
+            self._gps.append([data['time'], data['latitude'], data['longitude']])
     
     def request_acceleration(self):
         self._need_acceleration = True
