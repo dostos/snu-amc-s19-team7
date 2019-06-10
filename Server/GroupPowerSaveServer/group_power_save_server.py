@@ -6,6 +6,7 @@ from .group import Group
 from .user import User, UserStatus
 import scipy.cluster.hierarchy as sch
 import numpy as np
+from scipy import spatial
 from itertools import compress
 import fastcluster as fc
 import hdbscan
@@ -62,7 +63,7 @@ class GroupPowerSaveServer(object):
 
             time.sleep(interval)
 
-    def __initial_match(candidate_list: (np.ndarray, np.generic), min_pts=2, t=50, criterion='distance'):
+    def __initial_match(self, candidate_list: (np.ndarray, np.generic), min_pts=2, t=50, criterion='distance'):
         # TODO group matching for non-grouped user
         # 1 : dbscan algorithm + gps based movement vector alignment -> clear!
         # 2 : acceleration -> let's discuss
@@ -180,10 +181,46 @@ class GroupPowerSaveServer(object):
         print('After trajectory clustering, labels are ', labels)
         return groups.copy()
 
+    def __is_similar(self, peak0, peak1, threshold_time, thresold_peak_count):
+        def nearest_neighbour(points_a, points_b):
+            tree = spatial.cKDTree(np.reshape(points_b,(len(points_b), 1)))
+            return tree.query(np.reshape(points_a,(len(points_a), 1)), distance_upper_bound=threshold_time)
+        
+        nn = nearest_neighbour(peak0, peak1)
+        similar_count = 0
+        for i in range(len(peak0)):
+            if nn[1][i] != len(peak1):
+                similar_count += 1
+        
+        return similar_count >= thresold_peak_count
+
+
     def __group_match(self, candidate_list: list) -> list:
         # Input : list of list of member id
         # output : list of matched group(list of member id) 
-        return candidate_list.copy()
+        group_match_result = []
+        for potential_group in candidate_list:
+            peak_list = []
+            for id in potential_group:
+                user : User = self.user_dict[id]
+                if user.need_acceleration is False:
+                    peak_list.append({
+                        'id' : id,
+                        'peak': user.acceleration[0]})
+            
+            group_list = []
+            for i in range(len(peak_list)):
+                found_similar = False
+                for j in range(i + 1,len(peak_list)):
+                    if self.__is_similar(peak_list[i]['peak'], peak_list[j]['peak'], 0.1, 3):
+                        found_similar = True
+                        break
+                if found_similar:
+                    group_list.append(peak_list[i]['id'])
+            if len(group_list) > 1:
+                group_match_result.append(group_list)
+            
+        return group_match_result
 
     def __group_match_tick(self, interval: int):
         while(True):

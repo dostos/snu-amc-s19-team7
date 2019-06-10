@@ -26,7 +26,7 @@ class User(object):
         self._pending_status_change = UserStatus.NONE
         self._pending_group_id = None
         self._gps = []
-        self._acceleration = []
+        self._acceleration = None
         self._offset = None
         self._need_acceleration = False
         self._need_exit = False
