@@ -58,6 +58,7 @@ public class GPSService extends Service implements SensorEventListener {
     int accCounter = 0;
     int count = 0;
     int count2 = 0;
+    int change=0;
     static Location currentLocation;
     static String uniqueUserID = "IDnotSet";
     static int groupStatus = 0;
@@ -350,8 +351,12 @@ public class GPSService extends Service implements SensorEventListener {
                     Log.e("location update",pos);
 
                     JSONObject object = new JSONObject(pos);
-                    currentLocation.setLatitude(object.getDouble("latitude"));
-                    currentLocation.setLongitude(object.getDouble("longitude"));
+                    if(object.has("latitude")) {
+                        Location location = new Location("");
+                        location.setLongitude(object.getDouble("latitude"));
+                        location.setLongitude(object.getDouble("longitude"));
+                        currentLocation=location;
+                    }
 
                 } catch (IOException ioe) {
                     ioe.printStackTrace();
@@ -424,24 +429,28 @@ public class GPSService extends Service implements SensorEventListener {
 
             long curTime = System.currentTimeMillis();
             long t = (curTime/1000+1)*1000;
-            Log.d("time", t-curTime+"");
-            Log.d("currentState", groupStatus+"");
-            Log.d("count", count+"");
 
             handler.postDelayed(this, t-curTime);
             count++;
             count2++;
+            change++;
             if(count==10) {
                 count=0;
                 receiveGroupStatus();
+                //groupStatus=1;
             }
+
+            Log.d("time", t-curTime+"");
+            Log.d("currentState", groupStatus+"");
+            Log.d("count", count+"");
+
             if(groupStatus == 2){
                 getRealLocation();
                 providePosition();
             }else if(groupStatus == 0 && count%2==0){
                 getRealLocation();
                 providePosition();
-            }else if(count%5==0){
+            }else if(groupStatus == 1 && count%5==0){
                 receivePosition();
             //    getMockLocation();
             }
