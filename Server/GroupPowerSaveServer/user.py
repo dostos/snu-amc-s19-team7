@@ -26,7 +26,7 @@ class User(object):
 
     def update_data(self, data):
         # Need lock here?
-        if 'time' in data and 'magnitude':
+        if 'time' in data and 'magnitude' in data:
             print("Got acceleration of", self._id)
             print("Got acceleration of time ", data['time'])
             print("Got acceleration of magnitude ", data['magnitude'])
