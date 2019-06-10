@@ -99,6 +99,32 @@ public class HttpClient {
             return "0";
     }
 
+    public String provideAcceleration (String putUrl, String id, String data) throws IOException{
+
+        URL url = new URL(putUrl+"user-data?id="+id);
+        String readLine = null;
+        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        con.setRequestMethod("PUT");
+        con.setDoOutput(true);
+        //con.setRequestProperty("Content-Type", "application/json");
+        //con.setRequestProperty("Accept", "application/json");
+
+        this.sendData(con, data);
+        Log.d("Accel sent response:", ""+con.getResponseCode());
+        if(con.getResponseCode()==HttpURLConnection.HTTP_OK){
+            BufferedReader in = new BufferedReader(
+                    new InputStreamReader(con.getInputStream()));
+            StringBuffer response = new StringBuffer();
+            while ((readLine = in .readLine()) != null) {
+                response.append(readLine);
+            } in .close();
+
+            return response.toString();
+        }
+
+        return "0";
+    }
+
 
     protected void sendData(HttpURLConnection con, String data) throws IOException {
         DataOutputStream wr = null;

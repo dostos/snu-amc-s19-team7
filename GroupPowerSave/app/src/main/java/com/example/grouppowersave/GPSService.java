@@ -29,8 +29,10 @@ import android.util.Log;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -39,14 +41,18 @@ public class GPSService extends Service implements SensorEventListener {
     //public GPSService() {super("GPSService");}
 
     public static double ACC_THRESHOLD = 2.0;
+    public static int lag = 50;
+    public static double threshold = 4;
+    public static double influence = 0.1;
     public static String url = "http://54.180.101.171:8080/";
-    private SensorManager mSensorManager;
+    private static SensorManager mSensorManager;
     LocationManager mLocationManager;
-    Context mContext;
+    private static Context mContext;
+    private static GPSService GPSService;
     static HttpClient client;
     Handler handler;
     Runner runner;
-    int ACC_DATASET_SIZE = 600;
+    int ACC_DATASET_SIZE = 350;
     double[][] accData = new double[ACC_DATASET_SIZE][4];
     public double[][] accData_rdy;
     int accCounter = 0;
@@ -127,9 +133,8 @@ public class GPSService extends Service implements SensorEventListener {
         client = new HttpClient();
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         //have to change position of registerListener when we want to use accelerometer.
-        mSensorManager.registerListener(this,
-                mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
         mContext = this;
+        GPSService=this;
         connectToServer();
         handler = new Handler();
         runner = new Runner();
@@ -233,70 +238,78 @@ public class GPSService extends Service implements SensorEventListener {
                 );
     }
 
+    public void sendAccData() throws JSONException, IOException {
+        SignalDetector signalDetector = new SignalDetector();
+        ArrayList<Double> list = new ArrayList<>();
+        for(int i=0;i<ACC_DATASET_SIZE;i++){
+            double f = accData_rdy[i][0]*accData_rdy[i][0]+accData_rdy[i][1]*accData_rdy[i][1]+accData_rdy[i][2]*accData_rdy[i][2];
+            f=Math.sqrt(f);
+            list.add(f);
+        }
+        HashMap<String, List> result = signalDetector.analyzeDataForSignals(list, lag, threshold, influence);
+        List<Integer> signals = result.get("signals");
+        JSONArray time = new JSONArray();
+        JSONArray magnitude = new JSONArray();
+        final JSONObject obj = new JSONObject();
+        for(int i=0;i<ACC_DATASET_SIZE;i++){
+            if(signals.get(i)==1){
+                time.put((long)accData_rdy[i][3]);
+                magnitude.put(list.get(i));
+            }
+        }
+        obj.put("time", time);
+        obj.put("magnitude", magnitude);
+
+        Log.d("accel",obj.toString());
+
+        new AsyncTask<Void, Void, String>() {
+
+            @Override
+            protected String doInBackground(Void... voids) {
+                try {
+                    String response = client.provideAcceleration(url, uniqueUserID, obj.toString());
+                } catch (IOException ioe) {
+                    ioe.printStackTrace();
+                }
+                return null;
+            }
+        }.execute();
+    }
+
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
         if (sensorEvent.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
             double x = sensorEvent.values[0], y = sensorEvent.values[1], z = sensorEvent.values[2];
-            double f = Math.sqrt(x*x+y*y+z*z);
 
-            if(f > ACC_THRESHOLD){
-                long currTime = System.currentTimeMillis();
-                Log.d("TAG","Acc>2.0 "+currTime);
-            }
-
-            //send this values when we want.
-            //    Log.d("Acc: x,y,z",x+","+y+","+z);
-
-            accData[accCounter][0] = x;
-            accData[accCounter][1] = y;
-            accData[accCounter][2] = z;
-            accData[accCounter][3] = System.currentTimeMillis();
-            accCounter++;
-            if(accCounter == ACC_DATASET_SIZE){
-                accCounter = 0;
-                accData_rdy = accData;
-                accData = new double[ACC_DATASET_SIZE][4];
-            }
-
-        }
-    }
-    //returns the timestamps of the peaks of the accelerometer dataset
-    public int[] calculatePeaks(double[][] dataset){
-        List<Double> resList = new ArrayList<Double>();
-        double threshold = 1.2; //factor of which a value should be bigger than the average value to be considered a peak
-    double[] dataLen = new double[dataset.length];
-    double temp = 0;
-        for(int i = 0; i<dataset.length;i++){
-        dataLen[i] =  dataset[i][0]+dataset[i][1]+dataset[i][2];
-        temp = temp+dataLen[i];
-    }
-    double avg = temp/dataset.length;
-
-        for(int i = 0; i<dataLen.length; i++){
-            if(dataLen[i]>avg*threshold){
-                int peakLoc = i;
-                double peakVal = dataLen[i];
-                while(dataLen[i]>avg*threshold &&  i<dataLen.length){
-                    i++;
-                    if(dataLen[i]>peakVal){
-                        peakLoc = i;
-                        peakVal = dataLen[i];
+            if(accCounter==0 || (accCounter!=0 && System.currentTimeMillis()-accData[accCounter-1][3]>=200)) {
+                accData[accCounter][0] = x;
+                accData[accCounter][1] = y;
+                accData[accCounter][2] = z;
+                accData[accCounter][3] = System.currentTimeMillis();
+                Log.d("accel", (long) accData[accCounter][3] + "");
+                accCounter++;
+                if (accCounter == ACC_DATASET_SIZE) {
+                    accCounter = 0;
+                    accData_rdy = accData;
+                    accData = new double[ACC_DATASET_SIZE][4];
+                    mSensorManager.unregisterListener(this);
+                    try {
+                        sendAccData();
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
                 }
-                resList.add(dataset[peakLoc][3]); //adds the time of the peak location to the list
             }
         }
-        int[] result = new int[resList.size()];
-        for(int i = 0; i<resList.size();i++){
-            result[i] = resList.get(i).intValue();
-        }
-        return result;
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
 
     }
+
     public static void providePosition() {
         final JSONObject jsonO = new JSONObject();
         try {
@@ -317,6 +330,7 @@ public class GPSService extends Service implements SensorEventListener {
                 try {
                     Log.e("ProvideLocationToServer", jsonS);
                     String response = client.providePosition(url, uniqueUserID, jsonS);
+                    Log.d("ProvideLocationToServer",response);
                 } catch (IOException ioe) {
                     ioe.printStackTrace();
                 }
@@ -360,9 +374,8 @@ public class GPSService extends Service implements SensorEventListener {
 
                     JSONObject object = new JSONObject(ans);
                     if(object.getBoolean("need_acceleration")){
-
-                    }else{
-
+                        mSensorManager.registerListener(GPSService,
+                                mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
                     }
 
                     if(object.has("status")){
@@ -399,6 +412,9 @@ public class GPSService extends Service implements SensorEventListener {
         Log.e("str to loc result",loc.toString());
         return loc;
     }
+
+    int x = 0;
+
     public class Runner implements Runnable {
         //Should run every 5 seconds
         @Override
@@ -408,6 +424,8 @@ public class GPSService extends Service implements SensorEventListener {
             long curTime = System.currentTimeMillis();
             long t = (curTime/1000+1)*1000;
             Log.d("time", t-curTime+"");
+            Log.d("currentState", groupStatus+"");
+            Log.d("count", count+"");
 
             handler.postDelayed(this, t-curTime);
             count++;
@@ -418,7 +436,7 @@ public class GPSService extends Service implements SensorEventListener {
             if(groupStatus == 2){
                 getRealLocation();
                 providePosition();
-            }else if(groupStatus == 0){
+            }else if(groupStatus == 0 && count%2==0){
                 getRealLocation();
                 providePosition();
             }else if(count%5==0){
