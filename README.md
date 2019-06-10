@@ -1,6 +1,15 @@
 # snu-amc-s19-team7
 SNU Advanced Mobile Computing Team 7
 
+## Usage
+### Required Libraries
+Known good dependencies
+- Python 3.7
+- `conda install Shapely`
+- `pip install python-geohash`
+- traj_dist(https://github.com/HyunjiEllenPak/traj-dist)
+
+## Information Related to our Project.
 [Paper List](https://docs.google.com/document/d/1xeeMNYHYos9u6SOwAVlHrs4vI6IByBwgvJQIC70E4vw/edit) 
 
 [Team Structure](https://docs.google.com/spreadsheets/d/1Dw8co_7TbL6pjEyiaFucEih4L1IT50ID7dmSPMIrJNc/edit#gid=0)

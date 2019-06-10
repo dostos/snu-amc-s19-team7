@@ -16,19 +16,29 @@ class User(object):
         self._pending_group_id = None
         self._gps = []
         self._acceleration = []
-    def ping(self):
-        # reset ping timer for connection check
-        pass
+        self._offset = None
+        self._need_acceleration = False
+
+    def update_data_from_leader(self, leader):
+        if self._offset is not None:
+            leader_data = np.add(leader.gps[-1], [0, self._offset[0], self._offset[1]])
+            self._gps.append(leader_data)
 
     def update_data(self, data):
-        # TODO : store latitude / longitude / accel data
         # Need lock here?
         if 'time' in data and 'latitude' in data and 'longitude' in data:
-            # ignore outdated data
-            if len(self._gps) == 0 or self._gps[-1][0] < data['time']:
-                self._gps.append([data['time'], data['latitude'], data['longitude']])
+            self._gps.append([data['time'], data['latitude'], data['longitude']])
         elif 'acceleration' in data:
+            print("Got acceleration of", self._id)
+            self._need_acceleration = False
             self._acceleration = data['acceleration']
+    
+    def request_acceleration(self):
+        self._need_acceleration = True
+
+    @property
+    def need_acceleration(self):
+        return self._need_acceleration
 
     @property
     def gps(self):
@@ -50,6 +60,9 @@ class User(object):
     def status(self) -> UserStatus:
         return self._status
 
+    def update_offset(self, leader):
+        self._offset = np.subtract(self.gps[-1][1:],leader.gps[-1][1:]) 
+
     def reserve_status_change(self, status : UserStatus, group_id : int = None):
         """
         reserve status change for next ping
@@ -57,7 +70,7 @@ class User(object):
         if self._status is not status:
             self._pending_status_change = status
             if group_id is not None:
-                self._pending_group_id = group_id
+                self._group_id = group_id
     
     def get_pending_status(self):
         """
@@ -67,10 +80,6 @@ class User(object):
         self._pending_status_change = UserStatus.NONE
         if self._status is not pending_status and pending_status is not UserStatus.NONE:
             self._status = pending_status
-            
-            if self._pending_group_id is not None:
-                self._group_id = self._pending_group_id
-                self._pending_group_id = None
                 
             return pending_status
         else:

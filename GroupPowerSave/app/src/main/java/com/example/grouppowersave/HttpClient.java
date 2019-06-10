@@ -17,8 +17,7 @@ public class HttpClient {
 
 
     public static String getPosition(String getUrl, String id) throws IOException {
-        //URL url = new URL(getUrl);             // use this if ID is transmitted via RequestPoperty
-        URL url = appendUri(getUrl, "user-data"+id).toURL(); //generate query string
+        URL url = new URL(getUrl+"user-data");             // use this if ID is transmitted via RequestPoperty
         String readLine = null;
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
@@ -41,8 +40,7 @@ public class HttpClient {
     }
 
     public static String ping(String getUrl, String id) throws IOException {
-        //URL url = new URL(getUrl);             // use this if ID is transmitted via RequestPoperty
-        URL url = appendUri(getUrl, "ping"+id).toURL(); //generate query string
+        URL url = new URL(getUrl+"ping");             // use this if ID is transmitted via RequestProperty
         String readLine = null;
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
@@ -66,7 +64,7 @@ public class HttpClient {
 
         //post to server
     public String register(String postUrl, String data) throws IOException {
-        URL url = new URL(postUrl);
+        URL url = new URL(postUrl+"register");
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("POST");
 
@@ -74,7 +72,7 @@ public class HttpClient {
 
         this.sendData(con, data);
 
-        return this.read(con.getInputStream());
+        return con.getResponseMessage();
     }
 
     public void providePosition (String putUrl, String data) throws IOException{
@@ -89,6 +87,7 @@ public class HttpClient {
             this.sendData(con, data);
             Log.d("Location sent response:", ""+con.getResponseCode());
     }
+
 
     protected void sendData(HttpURLConnection con, String data) throws IOException {
         DataOutputStream wr = null;
