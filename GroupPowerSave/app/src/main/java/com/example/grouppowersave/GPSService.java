@@ -58,7 +58,9 @@ public class GPSService extends Service implements SensorEventListener {
     int accCounter = 0;
     int count = 0;
     static Location currentLocation  = new Location(LocationManager.GPS_PROVIDER); //initialized with empty location to prevent null pointer exceptions    int count2 = 0;
-    int change=0;    static String uniqueUserID = "IDnotSet";
+    int change=0;
+    int count2 = 0;
+    static String uniqueUserID = "IDnotSet";
     static int groupStatus = 1;
     LocationListener locationListenerGPS = new LocationListener() {
         @Override
@@ -200,7 +202,7 @@ public class GPSService extends Service implements SensorEventListener {
         mLocationManager.addTestProvider
                 (
                         
-                        "requiresNetwork" == "",
+                        "gps","requiresNetwork" == "",
                         "requiresSatellite" == "",
                         "requiresCell" == "",
                         "hasMonetaryCost" == "",
@@ -213,7 +215,7 @@ public class GPSService extends Service implements SensorEventListener {
                 );
 
      
-
+        Location newLocation = new Location("gps");
         newLocation.setLatitude(currentLocation.getLatitude());
         newLocation.setLongitude(currentLocation.getLongitude());
         newLocation.setAccuracy(500);
@@ -224,13 +226,13 @@ public class GPSService extends Service implements SensorEventListener {
 
         mLocationManager.setTestProviderEnabled
                 (
-
+            "gps",
                         true
                 );
 
         mLocationManager.setTestProviderStatus
                 (
-
+"gps",
                         LocationProvider.AVAILABLE,
                         null,
                         System.currentTimeMillis()
@@ -238,7 +240,7 @@ public class GPSService extends Service implements SensorEventListener {
 
         mLocationManager.setTestProviderLocation
                 (
-
+"gps",
                         newLocation
                 );
     }
@@ -441,7 +443,7 @@ public class GPSService extends Service implements SensorEventListener {
  			count2++;
             change++;                count=0;
                 receiveGroupStatus();
-            }
+
             if(groupStatus == 2){ //groupLeader                providePosition();
 
             }else if(groupStatus == 0 ){ //unmatched
