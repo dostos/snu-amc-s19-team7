@@ -301,9 +301,10 @@ public class GPSService extends Service implements SensorEventListener {
         final JSONObject jsonO = new JSONObject();
         try {
             if(currentLocation != null){
-                Log.e("ProvideLocationToServer", uniqueUserID);
-                Log.e("ProvideLocationToServer", currentLocation.toString());
-            jsonO.put("user-data", uniqueUserID+currentLocation.toString());}
+                jsonO.put("latitude", currentLocation.getLatitude());
+                jsonO.put("longitude", currentLocation.getLongitude());
+                jsonO.put("time", System.currentTimeMillis());
+            }
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -315,7 +316,7 @@ public class GPSService extends Service implements SensorEventListener {
             protected String doInBackground(Void... voids) {
                 try {
                     Log.e("ProvideLocationToServer", jsonS);
-                    String response = client.providePosition(url, jsonS);
+                    String response = client.providePosition(url, uniqueUserID, jsonS);
                 } catch (IOException ioe) {
                     ioe.printStackTrace();
                 }
@@ -332,11 +333,15 @@ public class GPSService extends Service implements SensorEventListener {
                     String pos = client.getPosition(url, uniqueUserID);
                     Log.e("LocationReceived", pos);
                     Log.e("location update",pos);
-                    currentLocation = stringToLocation(pos);
 
+                    JSONObject object = new JSONObject(pos);
+                    currentLocation.setLatitude(object.getDouble("latitude"));
+                    currentLocation.setLongitude(object.getDouble("longitude"));
 
                 } catch (IOException ioe) {
                     ioe.printStackTrace();
+                } catch (JSONException e) {
+                    e.printStackTrace();
                 }
                 return null;
             }
@@ -350,10 +355,25 @@ public class GPSService extends Service implements SensorEventListener {
                 try {
                     String ans = client.ping(url, uniqueUserID);
                     Log.e("GroupStatusReceived", ans);
-                    groupStatus = Integer.parseInt(ans);
+                    /*need_acceleration -> true -> user data put 1 mins
+                    * status : integer / 0 : non-member, 1 : member, 2 : leader*/
+
+                    JSONObject object = new JSONObject(ans);
+                    if(object.getBoolean("need_acceleration")){
+
+                    }else{
+
+                    }
+
+                    if(object.has("status")){
+                        groupStatus=object.getInt("status");
+                    }
+
 
                 } catch (IOException ioe) {
                     ioe.printStackTrace();
+                } catch (JSONException e) {
+                    e.printStackTrace();
                 }
                 return null;
             }
@@ -387,6 +407,7 @@ public class GPSService extends Service implements SensorEventListener {
 
             long curTime = System.currentTimeMillis();
             long t = (curTime/1000+1)*1000;
+            Log.d("time", t-curTime+"");
 
             handler.postDelayed(this, t-curTime);
             count++;
@@ -394,7 +415,10 @@ public class GPSService extends Service implements SensorEventListener {
                 count=0;
                 receiveGroupStatus();
             }
-            if(groupStatus == 0){
+            if(groupStatus == 2){
+                getRealLocation();
+                providePosition();
+            }else if(groupStatus == 0){
                 getRealLocation();
                 providePosition();
             }else if(count%5==0){

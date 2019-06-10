@@ -17,11 +17,10 @@ public class HttpClient {
 
 
     public static String getPosition(String getUrl, String id) throws IOException {
-        URL url = new URL(getUrl+"user-data");             // use this if ID is transmitted via RequestPoperty
+        URL url = new URL(getUrl+"user-data?id="+id);             // use this if ID is transmitted via RequestPoperty
         String readLine = null;
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
-        con.setRequestProperty("user-data", id);   //alternate way of transmitting ID - currently we are using query string so this is not checked
         int responseCode = con.getResponseCode();
         if (responseCode == HttpURLConnection.HTTP_OK) {
             BufferedReader in = new BufferedReader(
@@ -40,11 +39,10 @@ public class HttpClient {
     }
 
     public static String ping(String getUrl, String id) throws IOException {
-        URL url = new URL(getUrl+"ping");             // use this if ID is transmitted via RequestProperty
+        URL url = new URL(getUrl+"ping?id="+id);             // use this if ID is transmitted via RequestProperty
         String readLine = null;
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setRequestMethod("GET");
-        con.setRequestProperty("ping", id);   //alternate way of transmitting ID - currently we are using query string so this is not checked
         int responseCode = con.getResponseCode();
         if (responseCode == HttpURLConnection.HTTP_OK) {
             BufferedReader in = new BufferedReader(
@@ -75,9 +73,9 @@ public class HttpClient {
         return con.getResponseMessage();
     }
 
-    public String providePosition (String putUrl, String data) throws IOException{
+    public String providePosition (String putUrl, String id, String data) throws IOException{
 
-            URL url = new URL(putUrl);
+            URL url = new URL(putUrl+"user-data?id="+id);
             String readLine = null;
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             con.setRequestMethod("PUT");
