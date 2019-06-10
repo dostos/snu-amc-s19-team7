@@ -48,7 +48,17 @@ class GroupPowerSaveServer(object):
                     if group.is_need_leader_update(leader_update_interval):
                         self.user_dict[group.next_leader_id].reserve_status_change(UserStatus.GROUP_LEADER)
 
-            # TODO duty cycle for group validation / remove non-active user
+            remove_user_id = []
+            for group in self.group_dict.values():
+                for id in group.member_id_list:
+                    if self.user_dict[id].need_exit:
+                        remove_user_id.append(id)
+                        with self.group_dict_lock:
+                            group.remove_member(id)
+
+            for id in remove_user_id:
+                print("User ",id, " Removed from a group")
+                self.user_dict[id].reset_group()
 
             time.sleep(interval)
 
@@ -365,6 +375,9 @@ class GroupPowerSaveServer(object):
         if pending_status is not None:
             response_data["status"] = pending_status.value
             response_data["group_id"] = user.group_id
+
+            if pending_status is UserStatus.NON_GROUP_MEMBER:
+                self.non_member_id_set.add(id)
 
             print("User", id, "has changed to", pending_status)
         

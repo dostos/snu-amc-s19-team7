@@ -1,5 +1,16 @@
 from enum import Enum
 import numpy as np
+import math
+
+# gps positions -> distance in meters
+def get_distance(pos1, pos2) :  
+    R = 6378.137 # Radius of earth in KM
+    dLat = pos2[0] * math.pi / 180 - pos1[0] * math.pi / 180
+    dLon = pos2[1] * math.pi / 180 - pos1[1] * math.pi / 180
+    a = math.sin(dLat/2) * math.sin(dLat/2) + math.cos(pos1[0] * math.pi / 180) * math.cos(pos2[0] * math.pi / 180) * math.sin(dLon/2) * math.sin(dLon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    d = R * c
+    return d * 1000
 
 class UserStatus(Enum):
     NONE = -1
@@ -18,6 +29,7 @@ class User(object):
         self._acceleration = []
         self._offset = None
         self._need_acceleration = False
+        self._need_exit = False
 
     def update_data_from_leader(self, leader):
         if self._offset is not None:
@@ -32,10 +44,17 @@ class User(object):
             print("Got acceleration of", self._id)
             print("Got acceleration", self._acceleration)
         elif 'time' in data and 'latitude' in data and 'longitude' in data:
+            if self._status is UserStatus.GROUP_MEMBER:
+                if get_distance([data['latitude'], data['longitude']], self.gps[-1][1:3]) > 20:
+                    self._need_exit = True
             self._gps.append([data['time'], data['latitude'], data['longitude']])
     
     def request_acceleration(self):
         self._need_acceleration = True
+    
+    @property
+    def need_exit(self):
+        return self._need_exit
 
     @property
     def need_acceleration(self):
@@ -72,6 +91,11 @@ class User(object):
             self._pending_status_change = status
             if group_id is not None:
                 self._group_id = group_id
+    
+    def reset_group(self):
+        self._need_exit = False
+        self._pending_status_change = UserStatus.NON_GROUP_MEMBER
+        self._group_id = None
     
     def get_pending_status(self):
         """
