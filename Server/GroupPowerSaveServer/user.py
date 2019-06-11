@@ -82,6 +82,9 @@ class User(object):
 
     def update_offset(self, leader):
         self._offset = np.subtract(self.gps[-1][1:],leader.gps[-1][1:]) 
+        if get_distance(self.gps[-1][1:],leader.gps[-1][1:]) > 20:
+            print("Member ", self.id, "Removed from a group")
+            self._need_exit = True
 
     def reserve_status_change(self, status : UserStatus, group_id : int = None):
         """
