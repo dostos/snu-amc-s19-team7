@@ -401,16 +401,17 @@ class GroupPowerSaveServer(object):
         # update leader the group
         # TODO : missing responde delivery check
         if pending_status is UserStatus.GROUP_LEADER:
-            group = self.group_dict[user.group_id]
-            if group.current_leader_id != id:
-                self.user_dict[group.current_leader_id].reserve_status_change(UserStatus.GROUP_MEMBER)
-                group.confirm_leader_update(id)
-                # calculate user offsets
+            if user.group_id in self.group_dict:
+                group = self.group_dict[user.group_id]
+                if group.current_leader_id != id:
+                    self.user_dict[group.current_leader_id].reserve_status_change(UserStatus.GROUP_MEMBER)
+                    group.confirm_leader_update(id)
+                    # calculate user offsets
 
-                for member in group.member_id_list:
-                    if member != id:
-                        with self.user_dict_lock:
-                            self.user_dict[member].update_offset(user)
+                    for member in group.member_id_list:
+                        if member != id:
+                            with self.user_dict_lock:
+                                self.user_dict[member].update_offset(user)
 
         response_data = { "need_acceleration" : user.need_acceleration }
 

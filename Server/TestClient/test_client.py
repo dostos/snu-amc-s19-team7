@@ -157,7 +157,7 @@ class Client(object):
             bus : Bus
             for bus in buses:
                 if bus.is_stop and bus.route_index == self.route_index and bus.index == self._stop_index:
-                    if random_action > 0.90:
+                    if random_action > 0.5:
                         self.local_status = ClientStatus.WANDER
                         break
 
