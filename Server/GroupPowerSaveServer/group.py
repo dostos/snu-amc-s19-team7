@@ -67,7 +67,8 @@ class Group(object):
 
     @property
     def next_leader_id(self):
-        return self._member_id_list[self.__next_leader_index()]
+        with self.__member_id_list_lock:
+            return self._member_id_list[self.__next_leader_index()]
         
     @property
     def id(self):
