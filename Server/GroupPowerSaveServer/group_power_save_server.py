@@ -63,7 +63,7 @@ class GroupPowerSaveServer(object):
 
             time.sleep(interval)
 
-    def __initial_match(self, candidate_list: (np.ndarray, np.generic), min_pts=2, t=50, criterion='distance'):
+    def __initial_match(self, candidate_list: (np.ndarray, np.generic), min_pts=2, t=100, criterion='distance'):
         # TODO group matching for non-grouped user
         # 1 : dbscan algorithm + gps based movement vector alignment -> clear!
         # 2 : acceleration -> let's discuss
@@ -225,6 +225,33 @@ class GroupPowerSaveServer(object):
 
     def __group_match_tick(self, interval: int):
         while(True):
+            # Initial match
+            if len(self.non_member_id_set) != 0:
+                non_member_list = list(self.non_member_id_set)
+                non_member_data = []
+                for id in non_member_list:
+                    if len(self.user_dict[id].gps) >= 3:
+                        non_member_data.append([ i[-2:] for i in self.user_dict[id].gps[-3:]])
+                
+                if len(non_member_data) != 0:
+                    # Add existing groups
+                    with self.group_dict_lock:
+                        for group in self.group_dict.values():
+                            leader_id = group.current_leader_id
+                            non_member_data.append([ i[-2:] for i in self.user_dict[leader_id].gps[-3:]])
+                            non_member_list.append(leader_id)
+
+                    group_indexes = self.__initial_match(np.array(non_member_data))
+                    for index_list in group_indexes:
+                        if len(index_list) > 1:
+                            self.prev_initial_match.append([non_member_list[i] for i in index_list])
+                    
+                    print("Group initial match result :", self.prev_initial_match)
+                    for group_members in self.prev_initial_match:
+                        for id in group_members:
+                            self.user_dict[id].request_acceleration()
+                            print("Requested acceleration to ", id)
+
             if len(self.prev_initial_match) != 0:
                 group_list = self.__group_match(self.prev_initial_match)
                 print("Group match result :", group_list)
@@ -269,7 +296,8 @@ class GroupPowerSaveServer(object):
                                 self.group_dict.pop(group_id)
                             
                     for id in group_members:
-                        self.non_member_id_set.remove(id)
+                        if id in self.non_member_id_set:
+                            self.non_member_id_set.remove(id)
                         if id == group.current_leader_id:
                             role = UserStatus.GROUP_LEADER
                         else:
@@ -278,34 +306,6 @@ class GroupPowerSaveServer(object):
                         self.user_dict[id].reserve_status_change(role, group.id)
 
                 self.prev_initial_match.clear()
-            
-            # Initial match
-            if len(self.non_member_id_set) != 0:
-                non_member_list = list(self.non_member_id_set)
-                non_member_data = []
-                for id in non_member_list:
-                    if len(self.user_dict[id].gps) >= 3:
-                        non_member_data.append([ i[-2:] for i in self.user_dict[id].gps[-3:]])
-                
-                if len(non_member_data) != 0:
-                    # Add existing groups
-                    with self.group_dict_lock:
-                        for group in self.group_dict.values():
-                            leader_id = group.current_leader_id
-                            non_member_data.append([ i[-2:] for i in self.user_dict[leader_id].gps[-3:]])
-                            non_member_list.append(leader_id)
-
-                    group_indexes = self.__initial_match(np.array(non_member_data))
-                    for index_list in group_indexes:
-                        if len(index_list) > 1:
-                            self.prev_initial_match.append([non_member_list[i] for i in index_list])
-                    
-                    print("Group initial match result :", self.prev_initial_match)
-                    for group_members in self.prev_initial_match:
-                        for id in group_members:
-                            self.user_dict[id].request_acceleration()
-                            print("Requested acceleration to ", id)
-
             time.sleep(interval)
             
     async def __parse_json(self, request: web.Request, must_contains : list = []):    

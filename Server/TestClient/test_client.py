@@ -121,7 +121,7 @@ class Client(object):
             # arrived
             if self._t >= 1:
                 random_action = random.random()
-                if random_action < 0.9:
+                if random_action < 0.90:
                     self._current_position = self._next_position
                     self._next_position = np.add(self._current_position, [random.uniform(-0.001, 0.001), random.uniform(-0.001, 0.001)])
                 else:
@@ -152,6 +152,15 @@ class Client(object):
                     if bus.is_stop and bus.route_index == self.route_index and bus.index == self._stop_index:
                         self.local_status = ClientStatus.ON_BUS
                         self._bus = bus
+        elif self.local_status is ClientStatus.ON_BUS:
+            random_action = random.random()
+            bus : Bus
+            for bus in buses:
+                if bus.is_stop and bus.route_index == self.route_index and bus.index == self._stop_index:
+                    if random_action > 0.90:
+                        self.local_status = ClientStatus.WANDER
+                        break
+
 
 class DefaultTest(object):
     def __init__(self, session, target_address, map_bound, bus_per_route, routes, num_client):
