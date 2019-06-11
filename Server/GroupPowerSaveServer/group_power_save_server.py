@@ -196,6 +196,7 @@ class GroupPowerSaveServer(object):
 
 
     def __group_match(self, candidate_list: list) -> list:
+        return candidate_list.copy()
         # Input : list of list of member id
         # output : list of matched group(list of member id) 
         group_match_result = []
