@@ -3,7 +3,6 @@ SNU Advanced Mobile Computing Team 7
 
 ## Usage
 ### Required Libraries
-Known good dependencies
 - Python 3.7
 - `conda install Shapely`
 - `pip install python-geohash`
